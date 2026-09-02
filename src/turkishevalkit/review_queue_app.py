@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 import threading
 import webbrowser
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from .review_queue import QueueAction, QueueQuery, QueueSort, build_review_queue
 from .workbench import create_app as create_workbench_app
