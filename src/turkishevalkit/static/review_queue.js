@@ -311,38 +311,29 @@ function resetPageAndLoad() {
   loadQueue();
 }
 
+function ensureDynamicOption(id, value) {
+  if (!value) return;
+  const select = byId(id);
+  if (![...select.options].some((option) => option.value === value)) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    select.append(option);
+  }
+  select.value = value;
+}
+
 function loadStateFromUrl() {
   const params = new URLSearchParams(location.search);
   byId("filterSearch").value = params.get("q") || "";
   byId("filterAction").value = params.get("action") || "";
   byId("filterSort").value = params.get("sort") || "priority";
   byId("filterPageSize").value = params.get("per_page") || "50";
+  ensureDynamicOption("filterType", params.get("evaluation_type") || "");
+  ensureDynamicOption("filterRubric", params.get("rubric_id") || "");
+  ensureDynamicOption("filterEvaluator", params.get("evaluator_id") || "");
   const page = Number(params.get("page") || "1");
   state.page = Number.isInteger(page) && page > 0 ? page : 1;
-  return {
-    type: params.get("evaluation_type") || "",
-    rubric: params.get("rubric_id") || "",
-    evaluator: params.get("evaluator_id") || "",
-  };
-}
-
-function restoreDynamicFilters(values) {
-  const mappings = [
-    ["filterType", values.type],
-    ["filterRubric", values.rubric],
-    ["filterEvaluator", values.evaluator],
-  ];
-  for (const [id, value] of mappings) {
-    if (!value) continue;
-    const select = byId(id);
-    if (![...select.options].some((option) => option.value === value)) {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = value;
-      select.append(option);
-    }
-    select.value = value;
-  }
 }
 
 for (const id of ["filterAction", "filterType", "filterRubric", "filterEvaluator", "filterSort", "filterPageSize"]) {
@@ -379,9 +370,5 @@ byId("nextPage").addEventListener("click", () => {
 byId("submitReview").addEventListener("click", submitReview);
 byId("submitAdjudication").addEventListener("click", submitAdjudication);
 
-const initialDynamicFilters = loadStateFromUrl();
-loadQueue().then(() => restoreDynamicFilters(initialDynamicFilters)).then(() => {
-  if (initialDynamicFilters.type || initialDynamicFilters.rubric || initialDynamicFilters.evaluator) {
-    loadQueue();
-  }
-});
+loadStateFromUrl();
+loadQueue();
