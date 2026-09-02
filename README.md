@@ -4,11 +4,11 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Human-in-the-loop evaluation toolkit for Turkish AI text, timestamped audio QA, pairwise A/B review, action-oriented review queues, immutable revisions, and multi-evaluator calibration.**
+**Human-in-the-loop evaluation toolkit for Turkish AI text, timestamped audio QA, pairwise A/B review, action-oriented review queues, immutable revisions, and evidence-level calibration drill-down.**
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into inspectable local artifacts. It is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending an automated heuristic can replace the evaluator.
 
-> **Status:** alpha (`0.8.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, server-side review queues and filtering, two-or-more-evaluator calibration, JSON/CLI interfaces, and localhost-only browser tools.
+> **Status:** alpha (`0.9.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, server-side review queues and filtering, two-or-more-evaluator calibration, evidence-level disagreement exploration, JSON/CLI interfaces, and localhost-only browser tools.
 
 ## Why this exists
 
@@ -25,6 +25,7 @@ The project separates:
 - **revision** — a new artifact that supersedes an older evaluation without rewriting it;
 - **queueing** — action state derived from persisted workflow/revision artifacts rather than stored as a second source of truth;
 - **calibration** — observed agreement/disagreement across independent evaluators of the same stimulus;
+- **disagreement drill-down** — derived criterion, evaluator-pair, note, and timestamp evidence without evaluator ranking;
 - **interfaces** — CLI and local browser tools over the same core models and workflow APIs.
 
 ## Current capabilities
@@ -87,6 +88,20 @@ Queue state is not persisted separately. It is reproducibly derived from the eva
 - Audio calibration uses category-aware one-to-one timestamp matching with configurable tolerance and reports annotation F1, severity agreement, and temporal similarity.
 - Calibration is diagnostic: it does not decide which evaluator is correct or automatically pass/fail/rank evaluators.
 
+### Calibration disagreement explorer
+
+- Orders criterion hotspots by the number of differing evaluator pairs, then rubric order.
+- Shows each evaluator's rating/preference and criterion-specific human evidence note.
+- Scalar drill-down reports rating gaps; pairwise drill-down reports A/Tie/B directional gaps.
+- Keeps holistic pairwise preference and preference-strength differences separate from criterion evidence.
+- Audio drill-down shows unmatched timestamp annotations plus matched evidence that differs in timing or severity.
+- Reuses the timestamp tolerance stored in the saved calibration artifact.
+- Reconstructs from the saved calibration's source filenames and evaluator-attribution snapshot instead of current mutable workflow identity.
+- Missing source evaluations return an explicit conflict; TurkishEvalKit does not invent partial historical evidence.
+- The explorer is derived at read time and does not create another persistent artifact class or evaluator leaderboard.
+
+See [`docs/DISAGREEMENT_EXPLORER.md`](docs/DISAGREEMENT_EXPLORER.md) for the exact semantics and trust boundary.
+
 ### Local browser workbench
 
 - Text, Audio, and Pairwise evaluation forms.
@@ -96,7 +111,7 @@ Queue state is not persisted separately. It is reproducibly derived from the eva
 - Revision mode pre-fills the previous judgment while locking task/source identity fields; the server independently validates the same constraints.
 - Revision generation and supersession are visible in local history.
 - Dedicated **Calibration** workspace using actual saved evaluation artifacts.
-- Compatibility-grouped evaluator selection and append-only calibration history.
+- Compatibility-grouped evaluator selection, append-only calibration history, and evidence-level disagreement exploration.
 - Queue-first launcher combines Workbench, Review Queue, and Calibration on the same localhost process.
 - No CDN, telemetry, or external AI-service requirement.
 - Server binds to `127.0.0.1` by default.
@@ -173,9 +188,9 @@ turkisheval workbench --no-browser
 
 The main page records evaluations and workflow state. A submitted evaluation can be accepted, escalated, or returned to the original evaluator with `request_changes`. When the evaluator creates the requested revision, the old evaluation remains immutable and the new artifact receives its own draft workflow and revision-lineage sidecar.
 
-Open **Calibration** from the workbench header to compare two or more compatible evaluations already saved in the workspace. Evaluator identity is read from each evaluation's workflow sidecar; missing/corrupt attribution does not silently become a calibration identity.
+Open **Calibration** from the workbench header to compare two or more compatible evaluations already saved in the workspace. Saved calibration reports can be reopened and drilled down to the exact criterion/evaluator/evidence differences. Evaluator identity is read from each evaluation's workflow sidecar when the calibration is created and snapshotted into the saved calibration source list.
 
-See [`docs/WORKBENCH.md`](docs/WORKBENCH.md), [`docs/REVISION_WORKFLOW.md`](docs/REVISION_WORKFLOW.md), and [`docs/CALIBRATION_DASHBOARD.md`](docs/CALIBRATION_DASHBOARD.md).
+See [`docs/WORKBENCH.md`](docs/WORKBENCH.md), [`docs/REVISION_WORKFLOW.md`](docs/REVISION_WORKFLOW.md), [`docs/CALIBRATION_DASHBOARD.md`](docs/CALIBRATION_DASHBOARD.md), and [`docs/DISAGREEMENT_EXPLORER.md`](docs/DISAGREEMENT_EXPLORER.md).
 
 ## Review queue
 
@@ -246,20 +261,20 @@ Workbench-managed artifact classes remain separate:
     └── <task>-<timestamp>.calibration.json
 ```
 
-Evaluation artifacts are append-only. Workflow sidecars advance state while retaining the complete event chain. Revision sidecars are immutable and record server-owned parent/root lineage. Calibration reports are derived append-only artifacts over explicit source evaluations. Review-queue state is derived at read time and does not add another persisted artifact class.
+Evaluation artifacts are append-only. Workflow sidecars advance state while retaining the complete event chain. Revision sidecars are immutable and record server-owned parent/root lineage. Calibration reports are derived append-only artifacts over explicit source evaluations. Review-queue state and disagreement-explorer state are derived at read time and do not add persisted artifact classes.
 
 The local interfaces:
 
 - perform no external LLM calls;
 - have no telemetry;
-- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, or calibration reports;
+- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, disagreement evidence, or calibration reports;
 - do not copy referenced audio into evaluation history.
 
 A local-only design is not a substitute for organizational access control. Evaluators should process only material they are authorized to access and follow applicable retention/privacy requirements.
 
 ## Artifact boundaries
 
-Review, revision, queueing, adjudication, and calibration answer different questions:
+Review, revision, queueing, adjudication, calibration, and disagreement exploration answer different questions:
 
 ```text
 immutable evaluation r0
@@ -267,10 +282,12 @@ immutable evaluation r0
         ├─ workflow → queue projection → next human action
         ├─ review → accept / escalate → optional adjudication
         ├─ review → request_changes → immutable evaluation r1 → new workflow
-        └─ calibration input with independent peer evaluations → separate report
+        └─ calibration input with independent peer evaluations → saved calibration report
+                                                               │
+                                                               └─ derived disagreement explorer
 ```
 
-The queue is a projection over persisted workflow state. No layer silently rewrites the evaluator's previous ratings, pairwise judgments, timestamps, source content, or notes.
+The queue and disagreement explorer are projections over persisted artifacts. No layer silently rewrites the evaluator's previous ratings, pairwise judgments, timestamps, source content, or notes.
 
 ## Non-goals
 
@@ -287,7 +304,7 @@ TurkishEvalKit does **not** currently:
 - decode referenced media or validate annotations against actual media duration;
 - turn annotation count/severity into score penalties;
 - rewrite an evaluation in place during review or revision;
-- persist queue priority as an independent workflow truth;
+- persist queue priority or disagreement hotspot order as independent workflow truth;
 - create parallel revision branches or automatically merge competing revisions.
 
 These are intentional boundaries. Human judgment remains explicit and the audit trail remains inspectable.
@@ -312,7 +329,7 @@ CI validates:
 - real localhost HTTP/persistence flows;
 - desktop and mobile Chromium workbench flows.
 
-Feature-specific gates additionally verify calibration, immutable revision lineage, review-queue backend behavior, JavaScript syntax, console entry points, browser assets, and wheel packaging.
+Feature-specific gates additionally verify calibration, immutable revision lineage, review-queue behavior, disagreement drill-down semantics, JavaScript syntax, public API imports, browser assets, and wheel packaging.
 
 ## Project map
 
@@ -323,7 +340,8 @@ src/turkishevalkit/
 ├── evaluation.py              # scalar validation/scoring
 ├── pairwise.py                # pairwise validation/scoring
 ├── calibration.py             # multi-evaluator agreement engine
-├── calibration_dashboard.py   # dashboard/history adapter
+├── disagreement.py            # evidence-level calibration drill-down
+├── calibration_dashboard.py   # dashboard/history/explorer adapter
 ├── workflow.py                # review/revision/adjudication lifecycle
 ├── revision.py                # immutable superseding-artifact lineage
 ├── review_queue.py            # queue projection/filter/sort/pagination engine
@@ -344,6 +362,7 @@ src/turkishevalkit/
 - [`docs/REVIEW_QUEUE.md`](docs/REVIEW_QUEUE.md) — action-state derivation, filtering, pagination, and queue trust boundary
 - [`docs/CALIBRATION.md`](docs/CALIBRATION.md) — agreement engine and metric semantics
 - [`docs/CALIBRATION_DASHBOARD.md`](docs/CALIBRATION_DASHBOARD.md) — browser dashboard and history
+- [`docs/DISAGREEMENT_EXPLORER.md`](docs/DISAGREEMENT_EXPLORER.md) — evidence-level disagreement semantics and trust boundary
 - [`docs/WORKBENCH.md`](docs/WORKBENCH.md) — local browser workflow
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — package boundaries and artifact flow
 
@@ -351,11 +370,11 @@ src/turkishevalkit/
 
 Near-term work remains ordered around evaluator correctness rather than surface area:
 
-1. richer calibration drill-down without turning disagreement into a leaderboard;
-2. population-level reliability statistics only with explicit assumptions and sufficiently sized repeated-task datasets;
-3. stronger import/export interoperability while preserving local-first defaults;
-4. optional rebuildable metadata indexing only when local workspace scale justifies it;
-5. explicit branching semantics only if real collaborative revision use cases justify the complexity.
+1. population-level reliability statistics only with explicit assumptions and sufficiently sized repeated-task datasets;
+2. stronger import/export interoperability while preserving local-first defaults;
+3. optional rebuildable metadata indexing only when local workspace scale justifies it;
+4. explicit branching semantics only if real collaborative revision use cases justify the complexity;
+5. shared audio-alignment primitives if additional evidence consumers need the timestamp matcher beyond calibration/explorer paths.
 
 ## License
 

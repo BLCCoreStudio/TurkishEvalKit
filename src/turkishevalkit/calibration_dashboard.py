@@ -14,6 +14,7 @@ from .calibration import (
     build_calibration_report,
     calibration_report_to_dict,
 )
+from .disagreement import build_disagreement_report, disagreement_report_to_dict
 from .rubrics import BUILTIN_RUBRICS
 from .serialization import record_from_dict, workflow_from_dict
 
@@ -174,6 +175,72 @@ def _load_calibration(workspace: Path, artifact_id: str) -> dict[str, Any]:
     return _load_json_object(path, label="calibration artifact")
 
 
+def _build_saved_disagreement_report(
+    workspace: Path,
+    calibration_artifact: dict[str, Any],
+) -> dict[str, Any]:
+    """Rebuild drill-down from immutable source artifacts and saved attribution."""
+
+    source_artifacts = calibration_artifact.get("source_artifacts")
+    saved_report = calibration_artifact.get("report")
+    if not isinstance(source_artifacts, list) or len(source_artifacts) < 2:
+        raise ValueError("calibration artifact must reference at least two source evaluations")
+    if not isinstance(saved_report, dict):
+        raise ValueError("calibration artifact does not contain a valid report")
+
+    submissions: list[EvaluatorSubmission] = []
+    filenames: list[str] = []
+    evaluator_ids: list[str] = []
+    for source in source_artifacts:
+        if not isinstance(source, dict):
+            raise ValueError("calibration source_artifacts entries must be objects")
+        filename = source.get("filename")
+        evaluator_id = source.get("evaluator_id")
+        if not isinstance(filename, str) or not filename:
+            raise ValueError("calibration source artifact filename must be a non-empty string")
+        if not isinstance(evaluator_id, str) or not evaluator_id.strip():
+            raise ValueError("calibration source evaluator_id must be a non-empty string")
+        record, _ = _load_saved_record(workspace, filename)
+        submissions.append(EvaluatorSubmission(evaluator_id=evaluator_id, record=record))
+        filenames.append(filename)
+        evaluator_ids.append(evaluator_id)
+
+    if len(filenames) != len(set(filenames)):
+        raise ValueError("calibration source artifact filenames must be unique")
+    if len(evaluator_ids) != len(set(evaluator_ids)):
+        raise ValueError("calibration source evaluator_id values must be unique")
+
+    first_record = submissions[0].record
+    rubric = BUILTIN_RUBRICS.get(first_record.rubric_id)
+    if rubric is None:
+        raise ValueError(f"unknown rubric: {first_record.rubric_id}")
+
+    tolerance = 250
+    raw_audio = saved_report.get("audio_annotation_agreement")
+    if isinstance(raw_audio, dict):
+        raw_tolerance = raw_audio.get("tolerance_ms")
+        if isinstance(raw_tolerance, int) and not isinstance(raw_tolerance, bool):
+            tolerance = raw_tolerance
+
+    report = build_disagreement_report(
+        tuple(submissions),
+        rubric,
+        annotation_tolerance_ms=tolerance,
+    )
+    expected_evaluators = saved_report.get("evaluator_ids")
+    if isinstance(expected_evaluators, list) and expected_evaluators != evaluator_ids:
+        raise ValueError("saved calibration evaluator attribution does not match source_artifacts")
+    if str(saved_report.get("task_id", "")) != report.task_id:
+        raise ValueError("saved calibration task_id does not match source artifacts")
+    if str(saved_report.get("rubric_id", "")) != report.rubric_id:
+        raise ValueError("saved calibration rubric_id does not match source artifacts")
+    if str(saved_report.get("rubric_version", "")) != report.rubric_version:
+        raise ValueError("saved calibration rubric_version does not match source artifacts")
+    if str(saved_report.get("evaluation_type", "")) != report.evaluation_type.value:
+        raise ValueError("saved calibration evaluation_type does not match source artifacts")
+    return disagreement_report_to_dict(report)
+
+
 def list_calibration_history(workspace: Path) -> list[dict[str, Any]]:
     """Return saved calibration reports newest first."""
 
@@ -311,6 +378,23 @@ def create_calibration_blueprint(workspace: Path) -> Blueprint:
         except FileNotFoundError:
             abort(404)
         except (OSError, ValueError) as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @blueprint.get("/api/calibrations/<filename>/disagreements")
+    def calibration_disagreements(filename: str) -> Any:
+        try:
+            artifact = _load_calibration(workspace, filename)
+        except FileNotFoundError:
+            abort(404)
+        except (OSError, ValueError) as exc:
+            return jsonify({"error": str(exc)}), 400
+
+        try:
+            return jsonify(_build_saved_disagreement_report(workspace, artifact))
+        except FileNotFoundError as exc:
+            missing = str(exc.args[0]) if exc.args else "unknown"
+            return jsonify({"error": f"source evaluation is unavailable: {missing}"}), 409
+        except (OSError, TypeError, ValueError) as exc:
             return jsonify({"error": str(exc)}), 400
 
     @blueprint.get("/api/calibrations/<filename>/download")

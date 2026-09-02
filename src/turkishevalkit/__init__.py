@@ -8,6 +8,17 @@ from .calibration import (
     EvaluatorSubmission,
     build_calibration_report,
 )
+from .disagreement import (
+    AudioEvidence,
+    AudioPairDisagreement,
+    CriterionDisagreement,
+    CriterionPairDisagreement,
+    DisagreementReport,
+    EvaluatorObservation,
+    MatchedAudioVariance,
+    OverallPreferenceDifference,
+    build_disagreement_report,
+)
 from .evaluation import evaluate_submission
 from .models import (
     AudioAnnotation,
@@ -48,15 +59,23 @@ __all__ = [
     "AudioAnnotation",
     "AudioAnnotationAgreement",
     "AudioAnnotationPairAgreement",
+    "AudioEvidence",
     "AudioIssueCategory",
     "AudioIssueSeverity",
+    "AudioPairDisagreement",
     "CalibrationReport",
     "CriterionAgreement",
+    "CriterionDisagreement",
+    "CriterionPairDisagreement",
+    "DisagreementReport",
     "EvaluationRecord",
     "EvaluationSession",
     "EvaluationType",
     "EvaluationWorkflow",
+    "EvaluatorObservation",
     "EvaluatorSubmission",
+    "MatchedAudioVariance",
+    "OverallPreferenceDifference",
     "PairwiseEvaluationRecord",
     "PairwiseEvaluationResult",
     "PairwiseJudgment",
@@ -70,6 +89,7 @@ __all__ = [
     "WorkflowState",
     "adjudicate_workflow",
     "build_calibration_report",
+    "build_disagreement_report",
     "create_workflow",
     "evaluate_pairwise_submission",
     "evaluate_submission",
@@ -77,4 +97,4 @@ __all__ = [
     "submit_workflow",
 ]
 
-__version__ = "0.5.0"
+__version__ = "0.9.0"
