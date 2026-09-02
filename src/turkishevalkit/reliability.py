@@ -1,9 +1,4 @@
-"""Population-level inter-rater reliability over repeated evaluation tasks.
-
-Repeated-task reliability is deliberately separate from single-task calibration.
-A coefficient is calculated only when its documented design assumptions are met;
-otherwise the report contains an explicit not-applicable estimate.
-"""
+"""Population-level inter-rater reliability over repeated evaluation tasks."""
 
 from __future__ import annotations
 
@@ -114,14 +109,12 @@ _KRIPPENDORFF_BASE_ASSUMPTIONS = (
     "each included task has at least two independent human ratings",
     "chance disagreement is estimated from pooled observed marginals",
 )
-
 _FLEISS_ASSUMPTIONS = (
     "categories are treated as nominal",
     "every included task has the same number of ratings",
     "rater identities may vary by task",
     "chance agreement is estimated from pooled category marginals",
 )
-
 _ICC_A1_ASSUMPTIONS = (
     "the same evaluator panel rates every included task",
     "two-way random-effects ANOVA model",
@@ -190,8 +183,8 @@ def _ordinal_distance(
             pooled_counts.get(categories[low], 0)
             + pooled_counts.get(categories[high], 0)
         ) / 2.0
-        value = interval_mass - endpoint_half_mass
-        return float(value * value)
+        ordinal_gap = interval_mass - endpoint_half_mass
+        return float(ordinal_gap * ordinal_gap)
 
     return distance
 
@@ -234,6 +227,8 @@ def _krippendorff_alpha(
             _KRIPPENDORFF_BASE_ASSUMPTIONS,
         )
 
+    distance: Distance
+    assumptions: tuple[str, ...]
     if scale == "nominal":
         distance = _nominal_distance
         assumptions = (*_KRIPPENDORFF_BASE_ASSUMPTIONS, "categories are nominal")
@@ -248,11 +243,11 @@ def _krippendorff_alpha(
     else:
         raise ValueError(f"unsupported Krippendorff scale: {scale}")
 
-    total_pairable_ratings = sum(len(unit) for unit in valid_units)
+    pairable_rating_count = sum(len(unit) for unit in valid_units)
     observed = sum(
         _category_disagreement(Counter(unit), distance) * len(unit)
         for unit in valid_units
-    ) / total_pairable_ratings
+    ) / pairable_rating_count
     expected = _category_disagreement(pooled, distance)
     if isclose(expected, 0.0, abs_tol=1e-12):
         return _not_applicable(
@@ -289,7 +284,7 @@ def _fleiss_kappa(
 
     category_totals = Counter(value for unit in units for value in unit)
     total_ratings = len(units) * rater_count
-    marginal_probabilities = {
+    marginals = {
         category: category_totals.get(category, 0) / total_ratings
         for category in categories
     }
@@ -303,10 +298,7 @@ def _fleiss_kappa(
         task_agreements.append(numerator / (rater_count * (rater_count - 1)))
 
     observed = sum(task_agreements) / len(task_agreements)
-    expected = sum(
-        probability * probability
-        for probability in marginal_probabilities.values()
-    )
+    expected = sum(probability * probability for probability in marginals.values())
     if isclose(1.0 - expected, 0.0, abs_tol=1e-12):
         return _not_applicable(
             metric,
@@ -325,14 +317,14 @@ def _icc_a1(rows: Sequence[dict[str, float]]) -> ReliabilityEstimate:
     if not rows:
         return _not_applicable(metric, "no tasks are available", _ICC_A1_ASSUMPTIONS)
 
-    first_panel = tuple(sorted(rows[0]))
-    if len(first_panel) < 2:
+    evaluator_panel = tuple(sorted(rows[0]))
+    if len(evaluator_panel) < 2:
         return _not_applicable(
             metric,
             "ICC(A,1) requires at least two evaluators",
             _ICC_A1_ASSUMPTIONS,
         )
-    if any(tuple(sorted(row)) != first_panel for row in rows[1:]):
+    if any(tuple(sorted(row)) != evaluator_panel for row in rows[1:]):
         return _not_applicable(
             metric,
             "ICC(A,1) requires the same evaluator identities on every task",
@@ -345,9 +337,9 @@ def _icc_a1(rows: Sequence[dict[str, float]]) -> ReliabilityEstimate:
             _ICC_A1_ASSUMPTIONS,
         )
 
-    matrix = [[row[evaluator_id] for evaluator_id in first_panel] for row in rows]
+    matrix = [[row[evaluator_id] for evaluator_id in evaluator_panel] for row in rows]
     task_count = len(matrix)
-    evaluator_count = len(first_panel)
+    evaluator_count = len(evaluator_panel)
     grand_mean = sum(sum(row) for row in matrix) / (task_count * evaluator_count)
     task_means = [sum(row) / evaluator_count for row in matrix]
     evaluator_means = [
@@ -402,21 +394,24 @@ def _validate_population(
     evaluation_type: EvaluationType | None = None
 
     for task in spec.tasks:
-        report = build_calibration_report(task.submissions, rubric)
-        if report.task_id in task_ids:
+        calibration_report = build_calibration_report(task.submissions, rubric)
+        if calibration_report.task_id in task_ids:
             raise ValueError(
                 "reliability task_id values must be unique across the dataset"
             )
-        task_ids.add(report.task_id)
+        task_ids.add(calibration_report.task_id)
         if evaluation_type is None:
-            evaluation_type = report.evaluation_type
-        elif report.evaluation_type is not evaluation_type:
+            evaluation_type = calibration_report.evaluation_type
+        elif calibration_report.evaluation_type is not evaluation_type:
             raise ValueError("all reliability tasks must use the same evaluation_type")
-        if report.rubric_id != rubric.id or report.rubric_version != rubric.version:
+        if (
+            calibration_report.rubric_id != rubric.id
+            or calibration_report.rubric_version != rubric.version
+        ):
             raise ValueError(
                 "all reliability tasks must use the supplied rubric id/version"
             )
-        reports.append(report)
+        reports.append(calibration_report)
     return tuple(reports)
 
 
@@ -455,7 +450,7 @@ def _pairwise_criterion_units(
     spec: PopulationReliabilitySpec,
     criterion_id: str,
 ) -> list[list[str]]:
-    units: list[list[str]] = []
+    result: list[list[str]] = []
     for task in spec.tasks:
         values: list[str] = []
         for submission in task.submissions:
@@ -468,14 +463,14 @@ def _pairwise_criterion_units(
                 if judgment.criterion_id == criterion_id
             )
             values.append(preference)
-        units.append(values)
-    return units
+        result.append(values)
+    return result
 
 
 def _overall_preference_units(
     spec: PopulationReliabilitySpec,
 ) -> list[list[str]]:
-    units: list[list[str]] = []
+    result: list[list[str]] = []
     for task in spec.tasks:
         values: list[str] = []
         for submission in task.submissions:
@@ -485,14 +480,14 @@ def _overall_preference_units(
                     "overall preference reliability requires pairwise records"
                 )
             values.append(record.overall_preference.value)
-        units.append(values)
-    return units
+        result.append(values)
+    return result
 
 
 def _preference_strength_units(
     spec: PopulationReliabilitySpec,
 ) -> list[list[Category]]:
-    units: list[list[Category]] = []
+    result: list[list[Category]] = []
     for task in spec.tasks:
         values: list[Category] = []
         for submission in task.submissions:
@@ -502,8 +497,8 @@ def _preference_strength_units(
                     "preference strength reliability requires pairwise records"
                 )
             values.append(record.preference_strength)
-        units.append(values)
-    return units
+        result.append(values)
+    return result
 
 
 def _aggregate_score_rows(
@@ -533,21 +528,22 @@ def build_population_reliability_report(
     )
     fixed_rater_count = len(set(evaluator_counts)) == 1
     fixed_evaluator_panel = all(
-        panel == evaluator_sets[0] for panel in evaluator_sets[1:]
+        evaluator_set == evaluator_sets[0]
+        for evaluator_set in evaluator_sets[1:]
     )
 
     criterion_reports: dict[str, CriterionReliability] = {}
     if first.evaluation_type is EvaluationType.PAIRWISE:
         for criterion in rubric.criteria:
-            units = _pairwise_criterion_units(spec, criterion.id)
+            pairwise_units = _pairwise_criterion_units(spec, criterion.id)
             criterion_reports[criterion.id] = CriterionReliability(
                 criterion_id=criterion.id,
                 krippendorff_alpha=_krippendorff_alpha(
-                    units,
+                    pairwise_units,
                     scale="nominal",
                 ),
                 fleiss_kappa=_fleiss_kappa(
-                    units,
+                    pairwise_units,
                     categories=("a", "tie", "b"),
                 ),
                 icc_a1=_not_applicable(
@@ -575,11 +571,11 @@ def build_population_reliability_report(
         )
     else:
         for criterion in rubric.criteria:
-            units = _scalar_criterion_units(spec, criterion.id)
+            scalar_units = _scalar_criterion_units(spec, criterion.id)
             criterion_reports[criterion.id] = CriterionReliability(
                 criterion_id=criterion.id,
                 krippendorff_alpha=_krippendorff_alpha(
-                    units,
+                    scalar_units,
                     scale="ordinal",
                     ordinal_categories=(1, 2, 3, 4, 5),
                 ),
