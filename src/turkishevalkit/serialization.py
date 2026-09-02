@@ -159,9 +159,40 @@ def write_result(path: Path, result: SubmissionResult) -> None:
 
 
 def workflow_to_dict(workflow: EvaluationWorkflow) -> dict[str, Any]:
-    """Convert a workflow snapshot and event chain into portable JSON data."""
+    """Convert a workflow snapshot and event chain into portable JSON-native data."""
 
-    return asdict(workflow)
+    return {
+        "artifact_id": workflow.artifact_id,
+        "task_id": workflow.task_id,
+        "session": {
+            "session_id": workflow.session.session_id,
+            "evaluator_id": workflow.session.evaluator_id,
+            "started_at": workflow.session.started_at,
+        },
+        "state": workflow.state.value,
+        "events": [
+            {
+                "sequence": event.sequence,
+                "event_id": event.event_id,
+                "kind": event.kind.value,
+                "from_state": event.from_state.value if event.from_state is not None else None,
+                "to_state": event.to_state.value,
+                "actor_id": event.actor_id,
+                "actor_role": event.actor_role.value,
+                "occurred_at": event.occurred_at,
+                "note": event.note,
+                "review_outcome": (
+                    event.review_outcome.value if event.review_outcome is not None else None
+                ),
+                "adjudication_outcome": (
+                    event.adjudication_outcome.value
+                    if event.adjudication_outcome is not None
+                    else None
+                ),
+            }
+            for event in workflow.events
+        ],
+    }
 
 
 def workflow_from_dict(data: dict[str, Any]) -> EvaluationWorkflow:
