@@ -4,11 +4,11 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Human-in-the-loop evaluation toolkit and local workbench for Turkish AI text, audio, and pairwise A/B quality.**
+**Human-in-the-loop evaluation toolkit and local workbench for Turkish AI text, audio, pairwise A/B quality, and review workflows.**
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into auditable evaluation artifacts. The project is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending that an automated heuristic can replace human judgment.
 
-> **Status:** alpha. The current release line supports Turkish text and audio-quality ratings, pairwise A/B preference evaluation, deterministic rubric validation/scoring, JSON import/export, a CLI, and an optional localhost-only browser workbench with append-only local history.
+> **Status:** alpha (`0.3.x`). The current code supports Turkish text and audio-quality ratings, pairwise A/B preference evaluation, evaluator sessions, independent review and adjudication, deterministic rubric validation/scoring, JSON import/export, a CLI, and an optional localhost-only browser workbench.
 
 ## Why this exists
 
@@ -21,6 +21,7 @@ The project deliberately separates:
 - **validation** — deterministic checks for task type, completeness, duplicates, and unknown criteria;
 - **aggregation** — reproducible scalar or pairwise score calculation;
 - **evidence** — criterion notes, evaluator notes, English justification, source metadata, and exports;
+- **workflow** — evaluator session, review, escalation, and adjudication events that never rewrite the original evaluation;
 - **interfaces** — CLI and local workbench are adapters over the same core.
 
 ## Current capabilities
@@ -33,6 +34,11 @@ The project deliberately separates:
 - Rubrics explicitly bound to their evaluation type; cross-type mismatches are rejected by the core.
 - Strict 1–5 criterion ratings for scalar text/audio tasks with complete-rubric validation.
 - Versioned rubric identifiers stored with every evaluation record.
+- Evaluator sessions with explicit local evaluator/session identifiers.
+- Typed lifecycle: `draft → submitted → reviewed`, with escalated reviews optionally continuing to `adjudicated`.
+- Independent-role enforcement: a reviewer cannot review their own evaluation; an adjudicator cannot be the evaluator or reviewer.
+- Append-only workflow event history with actor, role, timestamp, transition, outcome, and notes.
+- Immutable scored evaluation artifacts plus separate workflow sidecars, so review decisions cannot silently alter original evidence.
 - UTF-8 JSON input/output with Turkish text preserved.
 - Human evaluator notes plus optional English justification.
 - CLI workflows for listing rubrics and scoring validated records.
@@ -42,6 +48,32 @@ The project deliberately separates:
 - Example text, audio, and pairwise evaluation records.
 - Python 3.11–3.13 CI with Ruff, strict mypy, pytest, coverage, CLI smoke, real HTTP, and Chromium browser tests.
 
+## Review and adjudication
+
+The review layer is deliberately separate from scoring. A saved evaluation remains the evaluator's original artifact. Workflow state lives in a sidecar with a complete transition history.
+
+```text
+Evaluation saved
+      ↓
+    Draft
+      ↓ evaluator submits
+  Submitted
+      ↓ independent reviewer
+   Reviewed ── accepted → terminal
+      │
+      └─ escalated
+           ↓ independent adjudicator
+       Adjudicated
+```
+
+A reviewer can either **accept** an evaluation or **escalate** a disagreement. Escalation requires an explanatory note. Only an escalated review can be adjudicated. The adjudicator records one of:
+
+- `evaluation_upheld`
+- `review_concern_upheld`
+- `inconclusive`
+
+The workflow records resolution; it does **not** rewrite ratings, pairwise preferences, source content, or evaluator notes. See [`docs/REVIEW_WORKFLOW.md`](docs/REVIEW_WORKFLOW.md).
+
 ## Non-goals
 
 TurkishEvalKit does **not** currently:
@@ -50,9 +82,11 @@ TurkishEvalKit does **not** currently:
 - send evaluation content to an external AI service;
 - claim that aggregate scores are objective ground truth;
 - copy referenced private audio into evaluation history;
-- provide multi-evaluator consensus or adjudication as if evaluator disagreement did not exist.
+- edit a submitted evaluation in place after review;
+- provide an edit/request-changes/resubmit revision loop yet;
+- claim multi-evaluator consensus merely because one review or adjudication exists.
 
-These boundaries are intentional.
+These boundaries are intentional. Revision semantics require an explicit superseding-artifact model rather than mutating historical evidence.
 
 ## Quick start
 
@@ -110,7 +144,7 @@ Start the local workbench:
 turkisheval workbench
 ```
 
-The server binds to `127.0.0.1` and opens the browser automatically. Evaluation content is processed locally. Saved results are written to a platform-appropriate local data directory in an append-only `evaluations/` history.
+The server binds to `127.0.0.1` and opens the browser automatically. Evaluation content is processed locally. Saved results are written to a platform-appropriate local data directory.
 
 Use a dedicated workspace when needed:
 
@@ -124,7 +158,7 @@ Run without opening a browser:
 turkisheval workbench --no-browser
 ```
 
-The workbench exposes **Text**, **Audio**, and **Pairwise** modes. See [`docs/WORKBENCH.md`](docs/WORKBENCH.md) for storage, privacy, and workflow details.
+The workbench exposes **Text**, **Audio**, and **Pairwise** modes plus evaluator-session and review/adjudication controls. See [`docs/WORKBENCH.md`](docs/WORKBENCH.md) for storage, privacy, and interaction details.
 
 ## Evaluation records
 
@@ -206,28 +240,41 @@ Therefore `+100` means every weighted criterion favors A, `-100` means every wei
 
 All aggregation is deterministic; interpretation remains a human responsibility.
 
-## Audio and privacy
+## Local storage and privacy
+
+The workbench separates evaluation content from workflow metadata:
+
+```text
+<workspace>/
+├── evaluations/
+│   └── <task>-<timestamp>.json
+└── workflows/
+    └── <task>-<timestamp>.workflow.json
+```
+
+Evaluation files are append-only. The workflow sidecar can advance through states, but every transition is retained in its event list. A corrupt or missing workflow sidecar does not make the underlying evaluation disappear from history.
 
 Audio evaluation records can point to local assets through source metadata. The workbench stores the reference and transcript/context fields but does not copy the referenced audio file into history. This repository intentionally ships no voice recordings.
 
-Evaluators should only process media they are authorized to access and should follow the applicable data-retention and privacy rules of the organization running the evaluation.
+Evaluators should only process media and prompts they are authorized to access and should follow the applicable data-retention and privacy rules of the organization running the evaluation.
 
 ## Architecture
 
-The UI and CLI share the same core:
-
 ```text
-JSON / workbench form
-        ↓
-serialization
-        ↓
-typed scalar or pairwise domain model
-        ↓
-type + rubric validation ── versioned built-in rubrics
-        ↓
-deterministic scalar / pairwise aggregation
-        ↓
-CLI result / append-only local history / JSON export
+source / candidates / audio reference
+              ↓
+       human evaluation
+              ↓
+ typed scalar or pairwise record
+              ↓
+ validation + deterministic scoring
+              ↓
+ immutable evaluation artifact
+              │
+              └── workflow sidecar
+                    draft → submitted → reviewed → adjudicated*
+
+* adjudication exists only after an escalated review
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design constraints and extension rules.
@@ -241,18 +288,17 @@ mypy src
 pytest --cov=turkishevalkit --cov-report=term-missing
 ```
 
-CI runs the quality suite on Python 3.11, 3.12, and 3.13, executes all example workflows through the installed CLI, exercises the live localhost API, and runs desktop/mobile Chromium flows for Text, Audio, and Pairwise modes.
+CI runs the quality suite on Python 3.11, 3.12, and 3.13, executes all example evaluation files through the installed CLI, exercises the live localhost API including review/adjudication transitions, and runs desktop/mobile Chromium workflows.
 
 ## Roadmap
 
 Near-term work remains ordered around evaluator correctness rather than surface area:
 
-1. harden pairwise schema semantics and history/export compatibility;
-2. add timestamped audio issue annotations without embedding private media;
-3. add evaluator-session metadata and review states;
-4. add agreement/calibration tooling for multi-evaluator workflows;
-5. add adjudication/review queues without hiding disagreement;
-6. publish stable schema documentation and migration rules before a `1.0` interchange format.
+1. add timestamped audio issue annotations without embedding private media;
+2. add multi-evaluator agreement and calibration tooling;
+3. design explicit superseding/revision semantics for request-changes/resubmit workflows;
+4. add queue/filtering tools for larger local review sets;
+5. publish stable evaluation and workflow schema documentation plus migration rules before a `1.0` interchange format.
 
 ## Contributing
 
