@@ -5,7 +5,10 @@ import pytest
 from turkishevalkit.workflow import (
     ActorRole,
     AdjudicationOutcome,
+    EvaluationSession,
+    EvaluationWorkflow,
     ReviewOutcome,
+    WorkflowEvent,
     WorkflowEventKind,
     WorkflowState,
     adjudicate_workflow,
@@ -42,6 +45,21 @@ def _escalated():
         note="The factuality judgment needs independent resolution.",
         occurred_at=REVIEWED_AT,
     )
+
+
+def _created_event(**overrides):
+    values = {
+        "sequence": 1,
+        "event_id": "event-001",
+        "kind": WorkflowEventKind.CREATED,
+        "from_state": None,
+        "to_state": WorkflowState.DRAFT,
+        "actor_id": "eval-01",
+        "actor_role": ActorRole.EVALUATOR,
+        "occurred_at": CREATED_AT,
+    }
+    values.update(overrides)
+    return WorkflowEvent(**values)
 
 
 def test_create_workflow_starts_draft_with_embedded_session() -> None:
@@ -166,6 +184,81 @@ def test_adjudicator_must_be_independent_and_explain_resolution() -> None:
             adjudicator_id="adjudicator-01",
             outcome=AdjudicationOutcome.INCONCLUSIVE,
             note="",
+        )
+
+
+def test_session_rejects_empty_identity_fields() -> None:
+    with pytest.raises(ValueError, match="session_id must not be empty"):
+        EvaluationSession(session_id=" ", evaluator_id="eval", started_at=CREATED_AT)
+    with pytest.raises(ValueError, match="evaluator_id must not be empty"):
+        EvaluationSession(session_id="session", evaluator_id=" ", started_at=CREATED_AT)
+
+
+def test_workflow_event_rejects_invalid_intrinsic_fields() -> None:
+    with pytest.raises(ValueError, match="sequence must be positive"):
+        _created_event(sequence=0)
+    with pytest.raises(ValueError, match="event_id must not be empty"):
+        _created_event(event_id=" ")
+    with pytest.raises(ValueError, match="actor_id must not be empty"):
+        _created_event(actor_id=" ")
+
+    with pytest.raises(ValueError, match="review events require review_outcome"):
+        _created_event(kind=WorkflowEventKind.REVIEWED)
+    with pytest.raises(ValueError, match="only valid on review events"):
+        _created_event(review_outcome=ReviewOutcome.ACCEPT)
+    with pytest.raises(ValueError, match="adjudication events require adjudication_outcome"):
+        _created_event(kind=WorkflowEventKind.ADJUDICATED)
+    with pytest.raises(ValueError, match="only valid on adjudication events"):
+        _created_event(adjudication_outcome=AdjudicationOutcome.INCONCLUSIVE)
+
+
+def test_workflow_snapshot_rejects_broken_identity_sequence_state_and_chain() -> None:
+    session = EvaluationSession(
+        session_id="session-001",
+        evaluator_id="eval-01",
+        started_at=CREATED_AT,
+    )
+    created = _created_event()
+
+    with pytest.raises(ValueError, match="artifact_id and task_id must not be empty"):
+        EvaluationWorkflow(
+            artifact_id="",
+            task_id="task",
+            session=session,
+            state=WorkflowState.DRAFT,
+            events=(created,),
+        )
+    with pytest.raises(ValueError, match="at least one event"):
+        EvaluationWorkflow(
+            artifact_id="artifact.json",
+            task_id="task",
+            session=session,
+            state=WorkflowState.DRAFT,
+            events=(),
+        )
+    with pytest.raises(ValueError, match="sequences must be contiguous"):
+        EvaluationWorkflow(
+            artifact_id="artifact.json",
+            task_id="task",
+            session=session,
+            state=WorkflowState.DRAFT,
+            events=(_created_event(sequence=2),),
+        )
+    with pytest.raises(ValueError, match="state must match"):
+        EvaluationWorkflow(
+            artifact_id="artifact.json",
+            task_id="task",
+            session=session,
+            state=WorkflowState.SUBMITTED,
+            events=(created,),
+        )
+    with pytest.raises(ValueError, match="state chain is inconsistent"):
+        EvaluationWorkflow(
+            artifact_id="artifact.json",
+            task_id="task",
+            session=session,
+            state=WorkflowState.DRAFT,
+            events=(_created_event(from_state=WorkflowState.SUBMITTED),),
         )
 
 
