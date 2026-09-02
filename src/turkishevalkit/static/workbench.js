@@ -20,6 +20,28 @@ function setMessage(text, kind = "") {
   node.className = `message ${kind}`.trim();
 }
 
+function preferenceOutcome(value) {
+  const normalized = String(value).toLowerCase();
+  if (normalized === "tie") {
+    return "Tie";
+  }
+  if (normalized === "a" || normalized === "b") {
+    return `${normalized.toUpperCase()} preferred`;
+  }
+  return "—";
+}
+
+function preferenceLabel(value) {
+  const normalized = String(value).toLowerCase();
+  if (normalized === "tie") {
+    return "Tie";
+  }
+  if (normalized === "a" || normalized === "b") {
+    return normalized.toUpperCase();
+  }
+  return "—";
+}
+
 function renderSourceFields() {
   const container = byId("sourceFields");
   if (state.type === "text") {
@@ -346,7 +368,7 @@ async function refreshHistory() {
       title.textContent = item.task_id || item.filename;
       const meta = document.createElement("span");
       if (item.evaluation_type === "pairwise") {
-        const preference = String(item.overall_preference || "—").toUpperCase();
+        const preference = preferenceLabel(item.overall_preference);
         meta.textContent = `pairwise · ${preference} · ${formatSigned(Number(item.preference_score))} A↔B`;
       } else {
         const score = Number(item.normalized_score);
@@ -389,9 +411,9 @@ async function saveEvaluation(event) {
     }
 
     if (state.type === "pairwise") {
-      const preference = String(body.result.overall_preference).toUpperCase();
+      const outcome = preferenceOutcome(body.result.overall_preference);
       const score = Number(body.result.preference_score);
-      byId("resultScore").textContent = `${preference} preferred · ${formatSigned(score)} A↔B`;
+      byId("resultScore").textContent = `${outcome} · ${formatSigned(score)} A↔B`;
     } else {
       const score = Number(body.result.normalized_score);
       byId("resultScore").textContent = `${score.toFixed(2)} / 100`;
