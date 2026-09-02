@@ -20,7 +20,7 @@ def _annotation() -> AudioAnnotation:
         end_ms=1800,
         category=AudioIssueCategory.PRONUNCIATION,
         severity=AudioIssueSeverity.MAJOR,
-        note="Ünlü uzaması doğal konuşmadan belirgin biçimde sapıyor.",
+        note="The vowel duration is clearly unnatural for the spoken phrase.",
     )
 
 
@@ -36,7 +36,7 @@ def test_audio_annotation_accepts_ranges_and_point_markers() -> None:
         end_ms=5100,
         category=AudioIssueCategory.INTONATION,
         severity=AudioIssueSeverity.MINOR,
-        note="Cümle sonu tonlaması burada düzleşiyor.",
+        note="Sentence-final intonation becomes flat at this point.",
     )
 
     assert ranged.end_ms > ranged.start_ms
