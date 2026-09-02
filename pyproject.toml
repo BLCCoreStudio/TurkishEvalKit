@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turkishevalkit"
-version = "0.1.0"
+version = "0.2.0"
 description = "Human-in-the-loop evaluation workbench for Turkish AI text and audio quality."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -23,7 +23,11 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
+workbench = [
+  "flask>=3.1,<4",
+]
 dev = [
+  "flask>=3.1,<4",
   "mypy>=1.11",
   "pytest>=8.3",
   "pytest-cov>=5.0",

@@ -1,11 +1,12 @@
 """Built-in Turkish text and audio quality rubrics."""
 
-from .models import Rubric, RubricCriterion
+from .models import EvaluationType, Rubric, RubricCriterion
 
 TEXT_QUALITY_RUBRIC = Rubric(
     id="tr-text-quality",
     version="1.0",
     title="Turkish AI Text Quality",
+    evaluation_type=EvaluationType.TEXT,
     criteria=(
         RubricCriterion(
             id="fluency",
@@ -39,6 +40,7 @@ AUDIO_QUALITY_RUBRIC = Rubric(
     id="tr-audio-quality",
     version="1.0",
     title="Turkish AI Audio Quality",
+    evaluation_type=EvaluationType.AUDIO,
     criteria=(
         RubricCriterion(
             id="nativeness",
@@ -66,8 +68,8 @@ AUDIO_QUALITY_RUBRIC = Rubric(
             id="audio_artifacts",
             label="Audio cleanliness",
             description=(
-                "Speech is free from clipping, glitches, repetitions, or distracting synthesis "
-                "artifacts."
+                "Speech is free from clipping, glitches, repetitions, or distracting "
+                "synthesis artifacts."
             ),
         ),
     ),

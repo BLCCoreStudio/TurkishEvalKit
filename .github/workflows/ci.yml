@@ -43,6 +43,27 @@ jobs:
       - name: Tests
         run: pytest --cov=turkishevalkit --cov-report=term-missing --cov-fail-under=90
 
+      - name: Wheel package-data smoke test
+        run: |
+          rm -rf /tmp/turkishevalkit-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-wheel
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(Path("/tmp/turkishevalkit-wheel").glob("turkishevalkit-*.whl"))
+          required = {
+              "turkishevalkit/templates/workbench.html",
+              "turkishevalkit/static/workbench.css",
+              "turkishevalkit/static/workbench.js",
+          }
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          missing = required - names
+          if missing:
+              raise SystemExit(f"missing workbench assets: {sorted(missing)}")
+          PY
+
       - name: CLI smoke test
         run: |
           turkisheval rubrics

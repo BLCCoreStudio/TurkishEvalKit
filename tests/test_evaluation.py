@@ -39,6 +39,20 @@ def test_lowest_score_normalizes_to_zero() -> None:
     assert result.normalized_score == 0.0
 
 
+def test_mismatched_evaluation_type_is_rejected() -> None:
+    ratings = tuple(Rating(criterion.id, 4) for criterion in TEXT_QUALITY_RUBRIC.criteria)
+    record = EvaluationRecord(
+        task_id="wrong-type",
+        evaluation_type=EvaluationType.AUDIO,
+        rubric_id=TEXT_QUALITY_RUBRIC.id,
+        rubric_version=TEXT_QUALITY_RUBRIC.version,
+        ratings=ratings,
+    )
+
+    with pytest.raises(ValueError, match="evaluation_type"):
+        evaluate_submission(record, TEXT_QUALITY_RUBRIC)
+
+
 def test_missing_rating_is_rejected() -> None:
     ratings = tuple(Rating(criterion.id, 4) for criterion in TEXT_QUALITY_RUBRIC.criteria[:-1])
 
