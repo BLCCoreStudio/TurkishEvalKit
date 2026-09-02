@@ -46,8 +46,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "rubrics":
-        for rubric in BUILTIN_RUBRICS.values():
-            print(f"{rubric.id}@{rubric.version}\t{rubric.title}")
+        for builtin_rubric in BUILTIN_RUBRICS.values():
+            print(f"{builtin_rubric.id}@{builtin_rubric.version}\t{builtin_rubric.title}")
         return 0
 
     if args.command == "evaluate":
