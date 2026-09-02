@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turkishevalkit"
-version = "0.4.0"
-description = "Human-in-the-loop evaluation workbench for Turkish AI text, timestamped audio QA, pairwise, and review workflows."
+version = "0.5.0"
+description = "Human-in-the-loop Turkish AI evaluation workbench with audio QA, pairwise review, and multi-evaluator calibration."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "BLCCoreStudio" }]
-keywords = ["ai-evaluation", "turkish", "llm", "audio-quality", "human-in-the-loop"]
+keywords = ["ai-evaluation", "turkish", "llm", "audio-quality", "human-in-the-loop", "calibration"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: MIT License",
