@@ -2,6 +2,9 @@
 
 from .evaluation import evaluate_submission
 from .models import (
+    AudioAnnotation,
+    AudioIssueCategory,
+    AudioIssueSeverity,
     EvaluationRecord,
     EvaluationType,
     PairwiseEvaluationRecord,
@@ -34,6 +37,9 @@ __all__ = [
     "TEXT_QUALITY_RUBRIC",
     "ActorRole",
     "AdjudicationOutcome",
+    "AudioAnnotation",
+    "AudioIssueCategory",
+    "AudioIssueSeverity",
     "EvaluationRecord",
     "EvaluationSession",
     "EvaluationType",
@@ -57,4 +63,4 @@ __all__ = [
     "submit_workflow",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
