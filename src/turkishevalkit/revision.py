@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from .workflow import utc_now_iso
 
@@ -95,7 +96,7 @@ def revision_to_dict(lineage: RevisionLineage) -> dict[str, object]:
     }
 
 
-def revision_from_dict(data: dict[str, object]) -> RevisionLineage:
+def revision_from_dict(data: dict[str, Any]) -> RevisionLineage:
     """Reconstruct and validate one persisted lineage record."""
 
     return RevisionLineage(
