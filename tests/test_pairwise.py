@@ -24,7 +24,10 @@ def _record(*judgments: PairwiseJudgment) -> PairwiseEvaluationRecord:
 
 def test_all_a_preferences_score_positive_100() -> None:
     record = _record(
-        *(PairwiseJudgment(criterion.id, Preference.A) for criterion in PAIRWISE_QUALITY_RUBRIC.criteria)
+        *(
+            PairwiseJudgment(criterion.id, Preference.A)
+            for criterion in PAIRWISE_QUALITY_RUBRIC.criteria
+        )
     )
 
     result = evaluate_pairwise_submission(record, PAIRWISE_QUALITY_RUBRIC)
@@ -56,11 +59,9 @@ def test_all_b_preferences_score_negative_100() -> None:
 
 def test_mixed_preferences_compute_weighted_direction() -> None:
     preferences = [Preference.A, Preference.A, Preference.TIE, Preference.B, Preference.A]
+    pairs = zip(PAIRWISE_QUALITY_RUBRIC.criteria, preferences, strict=True)
     record = _record(
-        *(
-            PairwiseJudgment(criterion.id, preference)
-            for criterion, preference in zip(PAIRWISE_QUALITY_RUBRIC.criteria, preferences, strict=True)
-        )
+        *(PairwiseJudgment(criterion.id, preference) for criterion, preference in pairs)
     )
 
     result = evaluate_pairwise_submission(record, PAIRWISE_QUALITY_RUBRIC)
