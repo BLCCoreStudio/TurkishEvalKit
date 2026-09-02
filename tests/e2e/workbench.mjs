@@ -140,6 +140,7 @@ async function exerciseDesktop(browser) {
 
   await page.getByRole("button", { name: "Audio" }).click();
   await page.locator("#sourceAudioRef").waitFor();
+  await page.locator("#audioAnnotationsPanel").waitFor();
   assert.match(await page.locator("#rubricVersion").textContent(), /^tr-audio-quality@/);
 
   const audioTask = "e2e-audio-001";
@@ -147,10 +148,54 @@ async function exerciseDesktop(browser) {
   await page.locator("#sourceAudioRef").fill("authorized://sample/audio-001");
   await page.locator("#sourceTranscript").fill("Merhaba, bugün nasılsınız?");
   await rateEveryCriterion(page, 4);
+
+  await page.locator("#addAudioAnnotationButton").click();
+  let audioRows = page.locator("#audioAnnotationList .audio-annotation-row");
+  let audioRow = audioRows.nth(0);
+  await audioRow.locator(".audio-start").fill("00:01.250");
+  await audioRow.locator(".audio-end").fill("00:01.900");
+  await audioRow.locator(".audio-category").selectOption("pronunciation");
+  await audioRow.locator(".audio-severity").selectOption("major");
+  await audioRow.locator(".audio-note").fill("The vowel is prolonged beyond natural Turkish pronunciation.");
+
+  await page.locator("#addAudioAnnotationButton").click();
+  audioRows = page.locator("#audioAnnotationList .audio-annotation-row");
+  audioRow = audioRows.nth(1);
+  await audioRow.locator(".audio-start").fill("5.1");
+  await audioRow.locator(".audio-category").selectOption("intonation");
+  await audioRow.locator(".audio-severity").selectOption("minor");
+  await audioRow.locator(".audio-note").fill("Sentence-final intonation becomes noticeably flat.");
+  assert.equal(await audioRows.count(), 2);
+  await ensureNoHorizontalOverflow(page, "desktop audio annotation editor");
+
   await page.locator("#evaluatorNote").fill("Akıcılık iyi; tonlama genel olarak doğal.");
   await page.locator("#justificationEn").fill("Fluency is strong and intonation is mostly natural.");
   await waitForSaved(page, audioTask);
   assert.equal(await page.locator("#workflowState").textContent(), "Draft");
+
+  const audioDownloadPromise = page.waitForEvent("download");
+  await page.locator("#resultDownload").click();
+  const audioDownload = await audioDownloadPromise;
+  const audioSuggested = audioDownload.suggestedFilename();
+  const audioDownloadPath = path.join(artifacts, audioSuggested);
+  await audioDownload.saveAs(audioDownloadPath);
+  const audioExported = JSON.parse(await fs.readFile(audioDownloadPath, "utf8"));
+  assert.deepEqual(audioExported.payload.audio_annotations, [
+    {
+      start_ms: 1250,
+      end_ms: 1900,
+      category: "pronunciation",
+      severity: "major",
+      note: "The vowel is prolonged beyond natural Turkish pronunciation.",
+    },
+    {
+      start_ms: 5100,
+      end_ms: 5100,
+      category: "intonation",
+      severity: "minor",
+      note: "Sentence-final intonation becomes noticeably flat.",
+    },
+  ]);
 
   await page.getByRole("button", { name: "Pairwise" }).click();
   await page.locator("#sourceResponseA").waitFor();
@@ -234,6 +279,12 @@ async function exerciseMobile(browser) {
   assert.ok(await page.locator("#evaluatorId").isVisible());
   assert.ok(await page.locator("#sessionId").isVisible());
 
+  await page.getByRole("button", { name: "Audio" }).click();
+  await page.locator("#audioAnnotationsPanel").waitFor();
+  await page.locator("#addAudioAnnotationButton").click();
+  assert.equal(await page.locator("#audioAnnotationList .audio-annotation-row").count(), 1);
+  await ensureNoHorizontalOverflow(page, "390px mobile audio annotation editor");
+
   await page.getByRole("button", { name: "Pairwise" }).click();
   await page.locator("#sourceResponseA").waitFor();
   await ensureNoHorizontalOverflow(page, "390px mobile pairwise viewport");
@@ -268,7 +319,7 @@ try {
   assert.ok(files.includes("desktop.png"));
   assert.ok(files.includes("mobile.png"));
   console.log(
-    "Browser E2E passed: text, audio, pairwise, evaluator sessions, review/adjudication, persistence, history, and JSON export.",
+    "Browser E2E passed: text, timestamped audio annotations, pairwise, evaluator sessions, review/adjudication, persistence, history, and JSON export.",
   );
 } finally {
   await browser.close();
