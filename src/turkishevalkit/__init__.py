@@ -1,5 +1,13 @@
 """TurkishEvalKit public package interface."""
 
+from .calibration import (
+    AudioAnnotationAgreement,
+    AudioAnnotationPairAgreement,
+    CalibrationReport,
+    CriterionAgreement,
+    EvaluatorSubmission,
+    build_calibration_report,
+)
 from .evaluation import evaluate_submission
 from .models import (
     AudioAnnotation,
@@ -38,12 +46,17 @@ __all__ = [
     "ActorRole",
     "AdjudicationOutcome",
     "AudioAnnotation",
+    "AudioAnnotationAgreement",
+    "AudioAnnotationPairAgreement",
     "AudioIssueCategory",
     "AudioIssueSeverity",
+    "CalibrationReport",
+    "CriterionAgreement",
     "EvaluationRecord",
     "EvaluationSession",
     "EvaluationType",
     "EvaluationWorkflow",
+    "EvaluatorSubmission",
     "PairwiseEvaluationRecord",
     "PairwiseEvaluationResult",
     "PairwiseJudgment",
@@ -56,6 +69,7 @@ __all__ = [
     "WorkflowEventKind",
     "WorkflowState",
     "adjudicate_workflow",
+    "build_calibration_report",
     "create_workflow",
     "evaluate_pairwise_submission",
     "evaluate_submission",
@@ -63,4 +77,4 @@ __all__ = [
     "submit_workflow",
 ]
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
