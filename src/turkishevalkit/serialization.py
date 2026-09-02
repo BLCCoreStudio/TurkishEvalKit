@@ -1,4 +1,4 @@
-"""Portable JSON serialization helpers for evaluation records and results."""
+"""Portable JSON serialization helpers for evaluation records, results, and workflows."""
 
 from __future__ import annotations
 
@@ -17,6 +17,16 @@ from .models import (
     Rating,
 )
 from .pairwise import PairwiseEvaluationResult
+from .workflow import (
+    ActorRole,
+    AdjudicationOutcome,
+    EvaluationSession,
+    EvaluationWorkflow,
+    ReviewOutcome,
+    WorkflowEvent,
+    WorkflowEventKind,
+    WorkflowState,
+)
 
 SubmissionRecord: TypeAlias = EvaluationRecord | PairwiseEvaluationRecord
 SubmissionResult: TypeAlias = EvaluationResult | PairwiseEvaluationResult
@@ -43,6 +53,14 @@ def _preference(value: Any, field_name: str) -> Preference:
         return Preference(str(value))
     except ValueError as exc:
         supported = ", ".join(item.value for item in Preference)
+        raise ValueError(f"{field_name} must be one of: {supported}") from exc
+
+
+def _enum_value(enum_type: type[Any], value: Any, field_name: str) -> Any:
+    try:
+        return enum_type(str(value))
+    except ValueError as exc:
+        supported = ", ".join(str(item.value) for item in enum_type)
         raise ValueError(f"{field_name} must be one of: {supported}") from exc
 
 
@@ -138,3 +156,78 @@ def write_result(path: Path, result: SubmissionResult) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(payload, encoding="utf-8")
     temporary.replace(path)
+
+
+def workflow_to_dict(workflow: EvaluationWorkflow) -> dict[str, Any]:
+    """Convert a workflow snapshot and event chain into portable JSON data."""
+
+    return asdict(workflow)
+
+
+def workflow_from_dict(data: dict[str, Any]) -> EvaluationWorkflow:
+    """Reconstruct and validate a persisted evaluator workflow snapshot."""
+
+    raw_session = data.get("session")
+    raw_events = data.get("events")
+    if not isinstance(raw_session, dict):
+        raise ValueError("workflow session must be an object")
+    if not isinstance(raw_events, list):
+        raise ValueError("workflow events must be a list")
+
+    session = EvaluationSession(
+        session_id=str(raw_session.get("session_id", "")),
+        evaluator_id=str(raw_session.get("evaluator_id", "")),
+        started_at=str(raw_session.get("started_at", "")),
+    )
+
+    events: list[WorkflowEvent] = []
+    for item in raw_events:
+        if not isinstance(item, dict):
+            raise ValueError("each workflow event must be an object")
+
+        raw_from_state = item.get("from_state")
+        from_state = (
+            None
+            if raw_from_state is None
+            else _enum_value(WorkflowState, raw_from_state, "from_state")
+        )
+        raw_review_outcome = item.get("review_outcome")
+        review_outcome = (
+            None
+            if raw_review_outcome is None
+            else _enum_value(ReviewOutcome, raw_review_outcome, "review_outcome")
+        )
+        raw_adjudication_outcome = item.get("adjudication_outcome")
+        adjudication_outcome = (
+            None
+            if raw_adjudication_outcome is None
+            else _enum_value(
+                AdjudicationOutcome,
+                raw_adjudication_outcome,
+                "adjudication_outcome",
+            )
+        )
+
+        events.append(
+            WorkflowEvent(
+                sequence=int(item.get("sequence", 0)),
+                event_id=str(item.get("event_id", "")),
+                kind=_enum_value(WorkflowEventKind, item.get("kind", ""), "kind"),
+                from_state=from_state,
+                to_state=_enum_value(WorkflowState, item.get("to_state", ""), "to_state"),
+                actor_id=str(item.get("actor_id", "")),
+                actor_role=_enum_value(ActorRole, item.get("actor_role", ""), "actor_role"),
+                occurred_at=str(item.get("occurred_at", "")),
+                note=str(item.get("note", "")),
+                review_outcome=review_outcome,
+                adjudication_outcome=adjudication_outcome,
+            )
+        )
+
+    return EvaluationWorkflow(
+        artifact_id=str(data.get("artifact_id", "")),
+        task_id=str(data.get("task_id", "")),
+        session=session,
+        state=_enum_value(WorkflowState, data.get("state", ""), "state"),
+        events=tuple(events),
+    )
