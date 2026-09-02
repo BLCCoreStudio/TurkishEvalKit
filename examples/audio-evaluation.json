@@ -1,0 +1,25 @@
+{
+  "task_id": "audio-demo-001",
+  "evaluation_type": "audio",
+  "rubric_id": "tr-audio-quality",
+  "rubric_version": "1.0",
+  "source": {
+    "asset_id": "sample-tr-001",
+    "transcript": "Bugün İstanbul'da hava parçalı bulutlu olacak.",
+    "audio_path": "local-only/sample-tr-001.wav",
+    "privacy_note": "Audio media is intentionally not committed to the repository."
+  },
+  "ratings": [
+    {"criterion_id": "nativeness", "score": 4, "note": "Genel olarak doğal; vurgu hafif sentetik."},
+    {"criterion_id": "pronunciation", "score": 5, "note": "Sözcükler açık ve doğru telaffuz ediliyor."},
+    {"criterion_id": "fluency", "score": 5, "note": "Duraksama veya tekrar yok."},
+    {"criterion_id": "intonation", "score": 4, "note": "Cümle sonu tonlaması biraz düz."},
+    {"criterion_id": "audio_artifacts", "score": 5, "note": "Belirgin klik, kesilme veya sentez artefaktı yok."}
+  ],
+  "evaluator_note": "Kayıt kullanılabilir kalitede; temel iyileştirme alanı prosodi.",
+  "justification_en": "The sample is clear and fluent, with accurate pronunciation and no obvious synthesis artifacts. The main weakness is slightly flat sentence-final intonation.",
+  "metadata": {
+    "example": true,
+    "human_authored_evaluation": true
+  }
+}
