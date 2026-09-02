@@ -1,9 +1,8 @@
 """Population-level inter-rater reliability over repeated evaluation tasks.
 
-This module deliberately separates repeated-task reliability from single-task
-calibration. Reliability coefficients are only computed when their documented
-sampling/design assumptions are satisfied; otherwise an explicit not-applicable
-estimate is returned instead of silently coercing the dataset.
+Repeated-task reliability is deliberately separate from single-task calibration.
+A coefficient is calculated only when its documented design assumptions are met;
+otherwise the report contains an explicit not-applicable estimate.
 """
 
 from __future__ import annotations
@@ -36,7 +35,9 @@ class ReliabilityTask:
 
     def __post_init__(self) -> None:
         if len(self.submissions) < 2:
-            raise ValueError("each reliability task requires at least two evaluator submissions")
+            raise ValueError(
+                "each reliability task requires at least two evaluator submissions"
+            )
 
     @property
     def task_id(self) -> str:
@@ -111,7 +112,7 @@ class PopulationReliabilityReport:
 _KRIPPENDORFF_BASE_ASSUMPTIONS = (
     "task units are independent for the intended population inference",
     "each included task has at least two independent human ratings",
-    "chance disagreement is estimated from the pooled observed marginals",
+    "chance disagreement is estimated from pooled observed marginals",
 )
 
 _FLEISS_ASSUMPTIONS = (
@@ -126,11 +127,15 @@ _ICC_A1_ASSUMPTIONS = (
     "two-way random-effects ANOVA model",
     "absolute agreement rather than consistency",
     "single-measure reliability ICC(A,1)",
-    "task and evaluator effects are represented by the two-way ANOVA decomposition",
+    "task and evaluator effects use the two-way ANOVA decomposition",
 )
 
 
-def _estimate(metric: str, value: float, assumptions: tuple[str, ...]) -> ReliabilityEstimate:
+def _estimate(
+    metric: str,
+    value: float,
+    assumptions: tuple[str, ...],
+) -> ReliabilityEstimate:
     return ReliabilityEstimate(
         metric=metric,
         value=round(value, 4),
@@ -173,21 +178,28 @@ def _ordinal_distance(
             left_index = positions[left]
             right_index = positions[right]
         except KeyError as exc:
-            raise ValueError("ordinal observation is outside the declared category scale") from exc
+            raise ValueError(
+                "ordinal observation is outside the declared category scale"
+            ) from exc
         low, high = sorted((left_index, right_index))
         interval_mass = sum(
-            pooled_counts.get(category, 0) for category in categories[low : high + 1]
+            pooled_counts.get(category, 0)
+            for category in categories[low : high + 1]
         )
         endpoint_half_mass = (
-            pooled_counts.get(categories[low], 0) + pooled_counts.get(categories[high], 0)
+            pooled_counts.get(categories[low], 0)
+            + pooled_counts.get(categories[high], 0)
         ) / 2.0
-        distance_value = interval_mass - endpoint_half_mass
-        return float(distance_value * distance_value)
+        value = interval_mass - endpoint_half_mass
+        return float(value * value)
 
     return distance
 
 
-def _category_disagreement(counts: Counter[Category], distance: Distance) -> float:
+def _category_disagreement(
+    counts: Counter[Category],
+    distance: Distance,
+) -> float:
     total = sum(counts.values())
     if total < 2:
         raise ValueError("disagreement requires at least two observations")
@@ -238,7 +250,8 @@ def _krippendorff_alpha(
 
     total_pairable_ratings = sum(len(unit) for unit in valid_units)
     observed = sum(
-        _category_disagreement(Counter(unit), distance) * len(unit) for unit in valid_units
+        _category_disagreement(Counter(unit), distance) * len(unit)
+        for unit in valid_units
     ) / total_pairable_ratings
     expected = _category_disagreement(pooled, distance)
     if isclose(expected, 0.0, abs_tol=1e-12):
@@ -256,6 +269,9 @@ def _fleiss_kappa(
     categories: Sequence[str],
 ) -> ReliabilityEstimate:
     metric = "fleiss_kappa"
+    if not units:
+        return _not_applicable(metric, "no tasks are available", _FLEISS_ASSUMPTIONS)
+
     rater_counts = {len(unit) for unit in units}
     if len(rater_counts) != 1:
         return _not_applicable(
@@ -263,36 +279,45 @@ def _fleiss_kappa(
             "Fleiss kappa requires the same number of ratings for every task",
             _FLEISS_ASSUMPTIONS,
         )
-    rater_count = next(iter(rater_counts), 0)
+    rater_count = next(iter(rater_counts))
     if rater_count < 2:
         return _not_applicable(
             metric,
             "Fleiss kappa requires at least two ratings per task",
             _FLEISS_ASSUMPTIONS,
         )
-    if not units:
-        return _not_applicable(metric, "no tasks are available", _FLEISS_ASSUMPTIONS)
 
     category_totals = Counter(value for unit in units for value in unit)
     total_ratings = len(units) * rater_count
     marginal_probabilities = {
-        category: category_totals.get(category, 0) / total_ratings for category in categories
+        category: category_totals.get(category, 0) / total_ratings
+        for category in categories
     }
     task_agreements: list[float] = []
     for unit in units:
         counts = Counter(unit)
-        numerator = sum(counts.get(category, 0) ** 2 for category in categories) - rater_count
+        numerator = (
+            sum(counts.get(category, 0) ** 2 for category in categories)
+            - rater_count
+        )
         task_agreements.append(numerator / (rater_count * (rater_count - 1)))
 
     observed = sum(task_agreements) / len(task_agreements)
-    expected = sum(probability * probability for probability in marginal_probabilities.values())
+    expected = sum(
+        probability * probability
+        for probability in marginal_probabilities.values()
+    )
     if isclose(1.0 - expected, 0.0, abs_tol=1e-12):
         return _not_applicable(
             metric,
             "chance agreement is 1 because only one pooled category has probability mass",
             _FLEISS_ASSUMPTIONS,
         )
-    return _estimate(metric, (observed - expected) / (1.0 - expected), _FLEISS_ASSUMPTIONS)
+    return _estimate(
+        metric,
+        (observed - expected) / (1.0 - expected),
+        _FLEISS_ASSUMPTIONS,
+    )
 
 
 def _icc_a1(rows: Sequence[dict[str, float]]) -> ReliabilityEstimate:
@@ -326,12 +351,15 @@ def _icc_a1(rows: Sequence[dict[str, float]]) -> ReliabilityEstimate:
     grand_mean = sum(sum(row) for row in matrix) / (task_count * evaluator_count)
     task_means = [sum(row) / evaluator_count for row in matrix]
     evaluator_means = [
-        sum(matrix[row_index][column_index] for row_index in range(task_count)) / task_count
+        sum(matrix[row_index][column_index] for row_index in range(task_count))
+        / task_count
         for column_index in range(evaluator_count)
     ]
 
     task_ss = evaluator_count * sum((value - grand_mean) ** 2 for value in task_means)
-    evaluator_ss = task_count * sum((value - grand_mean) ** 2 for value in evaluator_means)
+    evaluator_ss = task_count * sum(
+        (value - grand_mean) ** 2 for value in evaluator_means
+    )
     residual_ss = sum(
         (
             matrix[row_index][column_index]
@@ -358,8 +386,11 @@ def _icc_a1(rows: Sequence[dict[str, float]]) -> ReliabilityEstimate:
             "ICC(A,1) denominator is zero for this dataset",
             _ICC_A1_ASSUMPTIONS,
         )
-    value = (task_ms - residual_ms) / denominator
-    return _estimate(metric, value, _ICC_A1_ASSUMPTIONS)
+    return _estimate(
+        metric,
+        (task_ms - residual_ms) / denominator,
+        _ICC_A1_ASSUMPTIONS,
+    )
 
 
 def _validate_population(
@@ -373,14 +404,18 @@ def _validate_population(
     for task in spec.tasks:
         report = build_calibration_report(task.submissions, rubric)
         if report.task_id in task_ids:
-            raise ValueError("reliability task_id values must be unique across the dataset")
+            raise ValueError(
+                "reliability task_id values must be unique across the dataset"
+            )
         task_ids.add(report.task_id)
         if evaluation_type is None:
             evaluation_type = report.evaluation_type
         elif report.evaluation_type is not evaluation_type:
             raise ValueError("all reliability tasks must use the same evaluation_type")
         if report.rubric_id != rubric.id or report.rubric_version != rubric.version:
-            raise ValueError("all reliability tasks must use the supplied rubric id/version")
+            raise ValueError(
+                "all reliability tasks must use the supplied rubric id/version"
+            )
         reports.append(report)
     return tuple(reports)
 
@@ -397,7 +432,9 @@ def _scalar_criterion_rows(
             if not isinstance(record, EvaluationRecord):
                 raise TypeError("scalar reliability received a pairwise record")
             score = next(
-                rating.score for rating in record.ratings if rating.criterion_id == criterion_id
+                rating.score
+                for rating in record.ratings
+                if rating.criterion_id == criterion_id
             )
             row[submission.evaluator_id] = float(score)
         rows.append(row)
@@ -408,7 +445,10 @@ def _scalar_criterion_units(
     spec: PopulationReliabilitySpec,
     criterion_id: str,
 ) -> list[list[Category]]:
-    return [list(row.values()) for row in _scalar_criterion_rows(spec, criterion_id)]
+    return [
+        [int(value) for value in row.values()]
+        for row in _scalar_criterion_rows(spec, criterion_id)
+    ]
 
 
 def _pairwise_criterion_units(
@@ -432,33 +472,43 @@ def _pairwise_criterion_units(
     return units
 
 
-def _overall_preference_units(spec: PopulationReliabilitySpec) -> list[list[str]]:
+def _overall_preference_units(
+    spec: PopulationReliabilitySpec,
+) -> list[list[str]]:
     units: list[list[str]] = []
     for task in spec.tasks:
         values: list[str] = []
         for submission in task.submissions:
             record = submission.record
             if not isinstance(record, PairwiseEvaluationRecord):
-                raise TypeError("overall preference reliability requires pairwise records")
+                raise TypeError(
+                    "overall preference reliability requires pairwise records"
+                )
             values.append(record.overall_preference.value)
         units.append(values)
     return units
 
 
-def _preference_strength_units(spec: PopulationReliabilitySpec) -> list[list[Category]]:
+def _preference_strength_units(
+    spec: PopulationReliabilitySpec,
+) -> list[list[Category]]:
     units: list[list[Category]] = []
     for task in spec.tasks:
         values: list[Category] = []
         for submission in task.submissions:
             record = submission.record
             if not isinstance(record, PairwiseEvaluationRecord):
-                raise TypeError("preference strength reliability requires pairwise records")
+                raise TypeError(
+                    "preference strength reliability requires pairwise records"
+                )
             values.append(record.preference_strength)
         units.append(values)
     return units
 
 
-def _aggregate_score_rows(reports: Sequence[CalibrationReport]) -> list[dict[str, float]]:
+def _aggregate_score_rows(
+    reports: Sequence[CalibrationReport],
+) -> list[dict[str, float]]:
     return [dict(report.aggregate_scores) for report in reports]
 
 
@@ -472,9 +522,19 @@ def build_population_reliability_report(
     first = reports[0]
     evaluator_sets = [set(report.evaluator_ids) for report in reports]
     evaluator_counts = [report.evaluator_count for report in reports]
-    evaluator_ids = tuple(sorted(set().union(*evaluator_sets)))
+    evaluator_ids = tuple(
+        sorted(
+            {
+                evaluator_id
+                for report in reports
+                for evaluator_id in report.evaluator_ids
+            }
+        )
+    )
     fixed_rater_count = len(set(evaluator_counts)) == 1
-    fixed_evaluator_panel = all(panel == evaluator_sets[0] for panel in evaluator_sets[1:])
+    fixed_evaluator_panel = all(
+        panel == evaluator_sets[0] for panel in evaluator_sets[1:]
+    )
 
     criterion_reports: dict[str, CriterionReliability] = {}
     if first.evaluation_type is EvaluationType.PAIRWISE:
@@ -482,8 +542,14 @@ def build_population_reliability_report(
             units = _pairwise_criterion_units(spec, criterion.id)
             criterion_reports[criterion.id] = CriterionReliability(
                 criterion_id=criterion.id,
-                krippendorff_alpha=_krippendorff_alpha(units, scale="nominal"),
-                fleiss_kappa=_fleiss_kappa(units, categories=("a", "tie", "b")),
+                krippendorff_alpha=_krippendorff_alpha(
+                    units,
+                    scale="nominal",
+                ),
+                fleiss_kappa=_fleiss_kappa(
+                    units,
+                    categories=("a", "tie", "b"),
+                ),
                 icc_a1=_not_applicable(
                     "icc_a1_absolute_agreement",
                     "ICC(A,1) is not applied to categorical A/Tie/B judgments",
@@ -493,7 +559,10 @@ def build_population_reliability_report(
 
         overall_units = _overall_preference_units(spec)
         overall_alpha = _krippendorff_alpha(overall_units, scale="nominal")
-        overall_fleiss = _fleiss_kappa(overall_units, categories=("a", "tie", "b"))
+        overall_fleiss = _fleiss_kappa(
+            overall_units,
+            categories=("a", "tie", "b"),
+        )
         strength_alpha = _krippendorff_alpha(
             _preference_strength_units(spec),
             scale="ordinal",
@@ -516,10 +585,15 @@ def build_population_reliability_report(
                 ),
                 fleiss_kappa=_not_applicable(
                     "fleiss_kappa",
-                    "scalar 1-5 ratings are ordinal; they are not silently treated as nominal",
+                    (
+                        "scalar 1-5 ratings are ordinal; they are not silently "
+                        "treated as nominal"
+                    ),
                     _FLEISS_ASSUMPTIONS,
                 ),
-                icc_a1=_icc_a1(_scalar_criterion_rows(spec, criterion.id)),
+                icc_a1=_icc_a1(
+                    _scalar_criterion_rows(spec, criterion.id)
+                ),
             )
 
         overall_alpha = _not_applicable(
@@ -559,15 +633,24 @@ def build_population_reliability_report(
         overall_preference_fleiss_kappa=overall_fleiss,
         preference_strength_krippendorff_alpha=strength_alpha,
         notes=(
-            "Reliability coefficients describe consistency/agreement, not evaluator correctness.",
-            "The declared minimum task count is an inclusion guardrail, not a universal claim of statistical sufficiency.",
-            "No coefficient is automatically converted into a pass/fail threshold or evaluator rank.",
+            (
+                "Reliability coefficients describe consistency/agreement, "
+                "not evaluator correctness."
+            ),
+            (
+                "The declared minimum task count is an inclusion guardrail, "
+                "not a universal claim of statistical sufficiency."
+            ),
+            (
+                "No coefficient is automatically converted into a pass/fail "
+                "threshold or evaluator rank."
+            ),
         ),
     )
 
 
 def reliability_spec_from_dict(data: dict[str, Any]) -> PopulationReliabilitySpec:
-    """Build a repeated-task reliability spec from portable JSON-compatible data."""
+    """Build a repeated-task reliability spec from JSON-compatible data."""
 
     raw_minimum = data.get("minimum_task_count")
     if isinstance(raw_minimum, bool) or not isinstance(raw_minimum, int):
@@ -580,8 +663,15 @@ def reliability_spec_from_dict(data: dict[str, Any]) -> PopulationReliabilitySpe
     for item in raw_tasks:
         if not isinstance(item, dict):
             raise ValueError("each reliability task must be an object")
-        tasks.append(ReliabilityTask(submissions=calibration_spec_from_dict(item)))
-    return PopulationReliabilitySpec(minimum_task_count=raw_minimum, tasks=tuple(tasks))
+        tasks.append(
+            ReliabilityTask(
+                submissions=calibration_spec_from_dict(item),
+            )
+        )
+    return PopulationReliabilitySpec(
+        minimum_task_count=raw_minimum,
+        tasks=tuple(tasks),
+    )
 
 
 def load_reliability_spec(path: Path) -> PopulationReliabilitySpec:
@@ -610,10 +700,11 @@ def write_population_reliability_report(
 ) -> None:
     """Atomically write a population reliability report as UTF-8 JSON."""
 
-    payload = (
-        json.dumps(population_reliability_report_to_dict(report), ensure_ascii=False, indent=2)
-        + "\n"
-    )
+    payload = json.dumps(
+        population_reliability_report_to_dict(report),
+        ensure_ascii=False,
+        indent=2,
+    ) + "\n"
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(payload, encoding="utf-8")
     temporary.replace(path)
