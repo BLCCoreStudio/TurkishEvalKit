@@ -4,11 +4,11 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Human-in-the-loop evaluation toolkit and local workbench for Turkish AI text, audio, pairwise A/B quality, and review workflows.**
+**Human-in-the-loop evaluation toolkit and local workbench for Turkish AI text, timestamped audio QA, pairwise A/B quality, and review workflows.**
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into auditable evaluation artifacts. The project is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending that an automated heuristic can replace human judgment.
 
-> **Status:** alpha (`0.3.x`). The current code supports Turkish text and audio-quality ratings, pairwise A/B preference evaluation, evaluator sessions, independent review and adjudication, deterministic rubric validation/scoring, JSON import/export, a CLI, and an optional localhost-only browser workbench.
+> **Status:** alpha (`0.4.x`). The current code supports Turkish text and audio-quality ratings, timestamped audio issue evidence, pairwise A/B preference evaluation, evaluator sessions, independent review and adjudication, deterministic rubric validation/scoring, JSON import/export, a CLI, and an optional localhost-only browser workbench.
 
 ## Why this exists
 
@@ -20,6 +20,7 @@ The project deliberately separates:
 - **rubric structure** — explicit, typed, and versioned;
 - **validation** — deterministic checks for task type, completeness, duplicates, and unknown criteria;
 - **aggregation** — reproducible scalar or pairwise score calculation;
+- **localized evidence** — timestamped audio observations that explain where an issue is audible without automatically changing the score;
 - **evidence** — criterion notes, evaluator notes, English justification, source metadata, and exports;
 - **workflow** — evaluator session, review, escalation, and adjudication events that never rewrite the original evaluation;
 - **interfaces** — CLI and local workbench are adapters over the same core.
@@ -28,6 +29,8 @@ The project deliberately separates:
 
 - Turkish text-quality rubric covering fluency, instruction following, factuality, helpfulness, and locale fit.
 - Turkish audio-quality rubric covering nativeness, pronunciation, fluency, intonation, and synthesis/audio artifacts.
+- Timestamped audio QA annotations with point/range timestamps, issue category, severity, and human evidence notes.
+- Integer-millisecond audio annotation persistence with validation for negative/reversed timestamps, empty notes, unsupported labels, cross-task use, and exact duplicates.
 - Turkish pairwise A/B rubric with criterion-level **A / Tie / B** judgments.
 - Separate pairwise **overall preference** and **preference strength (1–3)** fields.
 - Deterministic pairwise criterion aggregate from `-100` (all B) through `0` (balanced) to `+100` (all A).
@@ -45,8 +48,37 @@ The project deliberately separates:
 - Optional browser workbench bound to `127.0.0.1` only.
 - Append-only local evaluation history with JSON export.
 - No CDN or external service requirement for the workbench UI.
-- Example text, audio, and pairwise evaluation records.
+- Example text, timestamped audio, and pairwise evaluation records.
 - Python 3.11–3.13 CI with Ruff, strict mypy, pytest, coverage, CLI smoke, real HTTP, and Chromium browser tests.
+
+## Timestamped audio QA
+
+Audio evaluations can preserve exactly where an evaluator heard an issue:
+
+```json
+{
+  "audio_annotations": [
+    {
+      "start_ms": 1850,
+      "end_ms": 2550,
+      "category": "emphasis",
+      "severity": "minor",
+      "note": "The emphasis sounds synthetic in this interval."
+    },
+    {
+      "start_ms": 5100,
+      "end_ms": 5100,
+      "category": "intonation",
+      "severity": "minor",
+      "note": "Sentence-final intonation becomes flat here."
+    }
+  ]
+}
+```
+
+`start_ms == end_ms` is a point marker; a larger end value is an interval. The workbench accepts readable values such as `12.5`, `01:12.500`, or `00:01:12.500` and converts them to integer milliseconds before submission.
+
+Annotations are **human evidence, not automatic penalties**. They do not change 1–5 rubric ratings or the aggregate score. TurkishEvalKit also does not currently inspect the media file or verify timestamps against the real audio duration. See [`docs/AUDIO_ANNOTATIONS.md`](docs/AUDIO_ANNOTATIONS.md).
 
 ## Review and adjudication
 
@@ -72,7 +104,7 @@ A reviewer can either **accept** an evaluation or **escalate** a disagreement. E
 - `review_concern_upheld`
 - `inconclusive`
 
-The workflow records resolution; it does **not** rewrite ratings, pairwise preferences, source content, or evaluator notes. See [`docs/REVIEW_WORKFLOW.md`](docs/REVIEW_WORKFLOW.md).
+The workflow records resolution; it does **not** rewrite ratings, audio annotations, pairwise preferences, source content, or evaluator notes. See [`docs/REVIEW_WORKFLOW.md`](docs/REVIEW_WORKFLOW.md).
 
 ## Non-goals
 
@@ -82,11 +114,13 @@ TurkishEvalKit does **not** currently:
 - send evaluation content to an external AI service;
 - claim that aggregate scores are objective ground truth;
 - copy referenced private audio into evaluation history;
+- open/decode referenced media, validate annotations against its real duration, or provide a waveform/player;
+- automatically turn annotation count/severity into rubric score penalties;
 - edit a submitted evaluation in place after review;
 - provide an edit/request-changes/resubmit revision loop yet;
 - claim multi-evaluator consensus merely because one review or adjudication exists.
 
-These boundaries are intentional. Revision semantics require an explicit superseding-artifact model rather than mutating historical evidence.
+These boundaries are intentional. Revision semantics require an explicit superseding-artifact model rather than mutating historical evidence, and automated annotation penalties would alter the meaning of human-authored rubric ratings.
 
 ## Quick start
 
@@ -112,16 +146,16 @@ Evaluate the included Turkish text example:
 turkisheval evaluate examples/text-evaluation.json
 ```
 
+Evaluate the timestamped audio example:
+
+```bash
+turkisheval evaluate examples/audio-evaluation.json --json
+```
+
 Evaluate the pairwise A/B example:
 
 ```bash
 turkisheval evaluate examples/pairwise-evaluation.json
-```
-
-Emit the complete scored result as JSON:
-
-```bash
-turkisheval evaluate examples/pairwise-evaluation.json --json
 ```
 
 Write a scored artifact:
@@ -158,11 +192,11 @@ Run without opening a browser:
 turkisheval workbench --no-browser
 ```
 
-The workbench exposes **Text**, **Audio**, and **Pairwise** modes plus evaluator-session and review/adjudication controls. See [`docs/WORKBENCH.md`](docs/WORKBENCH.md) for storage, privacy, and interaction details.
+The workbench exposes **Text**, **Audio**, and **Pairwise** modes, a timestamped audio issue editor, and evaluator-session/review/adjudication controls. See [`docs/WORKBENCH.md`](docs/WORKBENCH.md) for storage, privacy, and interaction details.
 
 ## Evaluation records
 
-Scalar text/audio records contain the task identity, evaluation type, exact rubric version, source material/metadata, one 1–5 rating per rubric criterion, and human-authored notes.
+Scalar text/audio records contain the task identity, evaluation type, exact rubric version, source material/metadata, one 1–5 rating per rubric criterion, and human-authored notes. Audio records can additionally contain `audio_annotations`.
 
 ```json
 {
@@ -222,7 +256,7 @@ weighted_score = Σ(rᵢ × wᵢ) / Σ(wᵢ)
 normalized_score = (weighted_score - 1) / 4 × 100
 ```
 
-The normalized score maps `1 → 0` and `5 → 100` without changing the underlying human ratings.
+The normalized score maps `1 → 0` and `5 → 100` without changing the underlying human ratings. Timestamped audio annotations are carried in the payload as evidence and are not included in this formula.
 
 ### Pairwise A/B
 
@@ -254,7 +288,7 @@ The workbench separates evaluation content from workflow metadata:
 
 Evaluation files are append-only. The workflow sidecar can advance through states, but every transition is retained in its event list. A corrupt or missing workflow sidecar does not make the underlying evaluation disappear from history.
 
-Audio evaluation records can point to local assets through source metadata. The workbench stores the reference and transcript/context fields but does not copy the referenced audio file into history. This repository intentionally ships no voice recordings.
+Audio evaluation records can point to local assets through source metadata. The workbench stores the reference, transcript/context, and any human-authored timestamp annotations but does not copy the referenced audio file into history. This repository intentionally ships no voice recordings.
 
 Evaluators should only process media and prompts they are authorized to access and should follow the applicable data-retention and privacy rules of the organization running the evaluation.
 
@@ -265,7 +299,8 @@ source / candidates / audio reference
               ↓
        human evaluation
               ↓
- typed scalar or pairwise record
+ typed scalar / pairwise record
+       + localized audio evidence
               ↓
  validation + deterministic scoring
               ↓
@@ -288,16 +323,16 @@ mypy src
 pytest --cov=turkishevalkit --cov-report=term-missing
 ```
 
-CI runs the quality suite on Python 3.11, 3.12, and 3.13, executes all example evaluation files through the installed CLI, exercises the live localhost API including review/adjudication transitions, and runs desktop/mobile Chromium workflows.
+CI runs the quality suite on Python 3.11, 3.12, and 3.13, executes all example evaluation files through the installed CLI, validates packaged workbench assets, exercises the live localhost API including timestamped audio persistence and review/adjudication transitions, and runs desktop/mobile Chromium workflows.
 
 ## Roadmap
 
 Near-term work remains ordered around evaluator correctness rather than surface area:
 
-1. add timestamped audio issue annotations without embedding private media;
-2. add multi-evaluator agreement and calibration tooling;
-3. design explicit superseding/revision semantics for request-changes/resubmit workflows;
-4. add queue/filtering tools for larger local review sets;
+1. add multi-evaluator agreement and calibration tooling;
+2. design explicit superseding/revision semantics for request-changes/resubmit workflows;
+3. add queue/filtering tools for larger local review sets;
+4. evaluate optional media-duration/waveform integration without weakening the local privacy boundary;
 5. publish stable evaluation and workflow schema documentation plus migration rules before a `1.0` interchange format.
 
 ## Contributing

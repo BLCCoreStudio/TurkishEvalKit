@@ -16,6 +16,22 @@
     {"criterion_id": "intonation", "score": 4, "note": "Cümle sonu tonlaması biraz düz."},
     {"criterion_id": "audio_artifacts", "score": 5, "note": "Belirgin klik, kesilme veya sentez artefaktı yok."}
   ],
+  "audio_annotations": [
+    {
+      "start_ms": 1850,
+      "end_ms": 2550,
+      "category": "emphasis",
+      "severity": "minor",
+      "note": "İstanbul sözcüğündeki vurgu hafif sentetik duyuluyor."
+    },
+    {
+      "start_ms": 5100,
+      "end_ms": 5100,
+      "category": "intonation",
+      "severity": "minor",
+      "note": "Cümle sonu tonlaması beklenenden daha düz bitiyor."
+    }
+  ],
   "evaluator_note": "Kayıt kullanılabilir kalitede; temel iyileştirme alanı prosodi.",
   "justification_en": "The sample is clear and fluent, with accurate pronunciation and no obvious synthesis artifacts. The main weakness is slightly flat sentence-final intonation.",
   "metadata": {

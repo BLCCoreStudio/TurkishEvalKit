@@ -9,6 +9,9 @@ from typing import Any, TypeAlias
 
 from .evaluation import EvaluationResult
 from .models import (
+    AudioAnnotation,
+    AudioIssueCategory,
+    AudioIssueSeverity,
     EvaluationRecord,
     EvaluationType,
     PairwiseEvaluationRecord,
@@ -62,6 +65,35 @@ def _enum_value(enum_type: type[Any], value: Any, field_name: str) -> Any:
     except ValueError as exc:
         supported = ", ".join(str(item.value) for item in enum_type)
         raise ValueError(f"{field_name} must be one of: {supported}") from exc
+
+
+def _audio_annotations(data: dict[str, Any]) -> tuple[AudioAnnotation, ...]:
+    raw_annotations = data.get("audio_annotations", [])
+    if not isinstance(raw_annotations, list):
+        raise ValueError("audio_annotations must be a list")
+
+    annotations: list[AudioAnnotation] = []
+    for item in raw_annotations:
+        if not isinstance(item, dict):
+            raise ValueError("each audio annotation must be an object")
+        annotations.append(
+            AudioAnnotation(
+                start_ms=int(item.get("start_ms", -1)),
+                end_ms=int(item.get("end_ms", -1)),
+                category=_enum_value(
+                    AudioIssueCategory,
+                    item.get("category", ""),
+                    "audio annotation category",
+                ),
+                severity=_enum_value(
+                    AudioIssueSeverity,
+                    item.get("severity", ""),
+                    "audio annotation severity",
+                ),
+                note=str(item.get("note", "")),
+            )
+        )
+    return tuple(annotations)
 
 
 def record_from_dict(data: dict[str, Any]) -> SubmissionRecord:
@@ -124,6 +156,7 @@ def record_from_dict(data: dict[str, Any]) -> SubmissionRecord:
         rubric_id=str(data.get("rubric_id", "")),
         rubric_version=str(data.get("rubric_version", "")),
         ratings=tuple(ratings),
+        audio_annotations=_audio_annotations(data),
         evaluator_note=str(data.get("evaluator_note", "")),
         justification_en=str(data.get("justification_en", "")),
         source=source,

@@ -56,6 +56,8 @@ jobs:
               "turkishevalkit/templates/workbench.html",
               "turkishevalkit/static/workbench.css",
               "turkishevalkit/static/workbench.js",
+              "turkishevalkit/static/audio_annotations.css",
+              "turkishevalkit/static/audio_annotations.js",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
@@ -72,6 +74,8 @@ jobs:
           turkisheval evaluate examples/pairwise-evaluation.json --json > /tmp/pairwise-result.json
           grep -q '"normalized_score"' /tmp/text-result.json
           grep -q '"normalized_score"' /tmp/audio-result.json
+          grep -q '"audio_annotations"' /tmp/audio-result.json
+          grep -q '"start_ms": 1850' /tmp/audio-result.json
           grep -q '"preference_score"' /tmp/pairwise-result.json
           grep -q '"overall_preference": "a"' /tmp/pairwise-result.json
 
@@ -131,6 +135,7 @@ jobs:
             > "$RUNNER_TEMP/index.html"
           grep -q "TurkishEvalKit" "$RUNNER_TEMP/index.html"
           grep -q "Pairwise" "$RUNNER_TEMP/index.html"
+          grep -q "audio_annotations.js" "$RUNNER_TEMP/index.html"
 
           curl --fail --silent --show-error \
             "http://127.0.0.1:$PORT/static/workbench.css" \
@@ -138,9 +143,18 @@ jobs:
           curl --fail --silent --show-error \
             "http://127.0.0.1:$PORT/static/workbench.js" \
             > "$RUNNER_TEMP/workbench.js"
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/static/audio_annotations.css" \
+            > "$RUNNER_TEMP/audio_annotations.css"
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/static/audio_annotations.js" \
+            > "$RUNNER_TEMP/audio_annotations.js"
           test -s "$RUNNER_TEMP/workbench.css"
           test -s "$RUNNER_TEMP/workbench.js"
+          test -s "$RUNNER_TEMP/audio_annotations.css"
+          test -s "$RUNNER_TEMP/audio_annotations.js"
           node --check "$RUNNER_TEMP/workbench.js"
+          node --check "$RUNNER_TEMP/audio_annotations.js"
 
           python - <<'PY'
           import json
@@ -253,6 +267,13 @@ jobs:
           assert details["workflow"]["state"] == "adjudicated"
 
           assert audio["result"]["task_id"] == "audio-demo-001"
+          annotations = audio["result"]["payload"]["audio_annotations"]
+          assert len(annotations) == 2
+          assert annotations[0]["start_ms"] == 1850
+          assert annotations[0]["end_ms"] == 2550
+          assert annotations[0]["category"] == "emphasis"
+          assert annotations[1]["start_ms"] == annotations[1]["end_ms"] == 5100
+          assert annotations[1]["category"] == "intonation"
           assert pairwise["result"]["task_id"] == "pairwise-demo-001"
           assert pairwise["result"]["overall_preference"] == "a"
           assert pairwise["result"]["preference_score"] == 40.0
