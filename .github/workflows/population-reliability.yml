@@ -1,0 +1,95 @@
+name: Population Reliability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/population-reliability.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/reliability.py"
+      - "src/turkishevalkit/cli.py"
+      - "src/turkishevalkit/__init__.py"
+      - "examples/reliability-text.json"
+      - "tests/test_reliability.py"
+      - "tests/test_cli_reliability.py"
+  pull_request:
+    paths:
+      - ".github/workflows/population-reliability.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/reliability.py"
+      - "src/turkishevalkit/cli.py"
+      - "src/turkishevalkit/__init__.py"
+      - "examples/reliability-text.json"
+      - "tests/test_reliability.py"
+      - "tests/test_cli_reliability.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: population-reliability-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reliability-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Reliability tests
+        run: pytest -q tests/test_reliability.py tests/test_cli_reliability.py
+
+      - name: Public API imports
+        run: |
+          python - <<'PY'
+          from turkishevalkit import (
+              PopulationReliabilityReport,
+              PopulationReliabilitySpec,
+              ReliabilityEstimate,
+              ReliabilityTask,
+              build_population_reliability_report,
+          )
+
+          assert PopulationReliabilityReport
+          assert PopulationReliabilitySpec
+          assert ReliabilityEstimate
+          assert ReliabilityTask
+          assert build_population_reliability_report
+          PY
+
+      - name: CLI example
+        run: |
+          turkisheval reliability examples/reliability-text.json --json > /tmp/reliability.json
+          python - <<'PY'
+          import json
+
+          with open("/tmp/reliability.json", encoding="utf-8") as handle:
+              payload = json.load(handle)
+          assert payload["task_count"] == 3
+          assert payload["evaluation_type"] == "text"
+          assert payload["fixed_evaluator_panel"] is True
+          PY
+
+      - name: Wheel module smoke
+        run: |
+          rm -rf /tmp/turkishevalkit-reliability-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-reliability-wheel
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(Path("/tmp/turkishevalkit-reliability-wheel").glob("turkishevalkit-*.whl"))
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          assert "turkishevalkit/reliability.py" in names
+          PY
