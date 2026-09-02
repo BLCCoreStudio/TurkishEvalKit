@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from math import ceil
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 
 class QueueAction(StrEnum):
@@ -131,11 +132,14 @@ def _matches(item: Mapping[str, Any], query: QueueQuery) -> bool:
     action = derive_queue_action(item)
     if query.actions and action not in query.actions:
         return False
-    if query.evaluation_types and str(item.get("evaluation_type") or "") not in query.evaluation_types:
+    evaluation_type = str(item.get("evaluation_type") or "")
+    if query.evaluation_types and evaluation_type not in query.evaluation_types:
         return False
-    if query.rubric_ids and str(item.get("rubric_id") or "") not in query.rubric_ids:
+    rubric_id = str(item.get("rubric_id") or "")
+    if query.rubric_ids and rubric_id not in query.rubric_ids:
         return False
-    if query.evaluator_ids and str(item.get("evaluator_id") or "") not in query.evaluator_ids:
+    evaluator_id = str(item.get("evaluator_id") or "")
+    if query.evaluator_ids and evaluator_id not in query.evaluator_ids:
         return False
     search = query.search.strip().casefold()
     return not search or search in _search_blob(item)
@@ -151,7 +155,13 @@ def _decorate(item: Mapping[str, Any]) -> dict[str, Any]:
 
 def _sort_items(items: list[dict[str, Any]], sort: QueueSort) -> None:
     if sort is QueueSort.NEWEST:
-        items.sort(key=lambda item: (_timestamp(item.get("saved_at")), item.get("filename", "")), reverse=True)
+        items.sort(
+            key=lambda item: (
+                _timestamp(item.get("saved_at")),
+                item.get("filename", ""),
+            ),
+            reverse=True,
+        )
         return
     if sort is QueueSort.OLDEST:
         items.sort(key=lambda item: (_timestamp(item.get("saved_at")), item.get("filename", "")))
@@ -190,10 +200,7 @@ def build_review_queue(
 
     decorated = [_decorate(item) for item in entries]
     action_counts = Counter(item["queue_action"] for item in decorated)
-    actionable_total = sum(
-        action_counts.get(action.value, 0)
-        for action in _ACTIONABLE
-    )
+    actionable_total = sum(action_counts.get(action.value, 0) for action in _ACTIONABLE)
 
     filtered = [item for item in decorated if _matches(item, query)]
     _sort_items(filtered, query.sort)
