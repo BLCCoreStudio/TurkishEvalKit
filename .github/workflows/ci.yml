@@ -69,8 +69,11 @@ jobs:
           turkisheval rubrics
           turkisheval evaluate examples/text-evaluation.json --json > /tmp/text-result.json
           turkisheval evaluate examples/audio-evaluation.json --json > /tmp/audio-result.json
+          turkisheval evaluate examples/pairwise-evaluation.json --json > /tmp/pairwise-result.json
           grep -q '"normalized_score"' /tmp/text-result.json
           grep -q '"normalized_score"' /tmp/audio-result.json
+          grep -q '"preference_score"' /tmp/pairwise-result.json
+          grep -q '"overall_preference": "a"' /tmp/pairwise-result.json
 
   live-workbench:
     needs: quality
@@ -127,6 +130,7 @@ jobs:
           curl --fail --silent --show-error "http://127.0.0.1:$PORT/" \
             > "$RUNNER_TEMP/index.html"
           grep -q "TurkishEvalKit" "$RUNNER_TEMP/index.html"
+          grep -q "Pairwise" "$RUNNER_TEMP/index.html"
 
           curl --fail --silent --show-error \
             "http://127.0.0.1:$PORT/static/workbench.css" \
@@ -151,6 +155,12 @@ jobs:
             > "$RUNNER_TEMP/audio-created.json"
 
           curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            --data-binary @examples/pairwise-evaluation.json \
+            "http://127.0.0.1:$PORT/api/evaluations" \
+            > "$RUNNER_TEMP/pairwise-created.json"
+
+          curl --fail --silent --show-error \
             "http://127.0.0.1:$PORT/api/history" \
             > "$RUNNER_TEMP/history.json"
 
@@ -164,18 +174,26 @@ jobs:
 
           text = json.loads((temp / "text-created.json").read_text())
           audio = json.loads((temp / "audio-created.json").read_text())
+          pairwise = json.loads((temp / "pairwise-created.json").read_text())
           history = json.loads((temp / "history.json").read_text())["items"]
 
           assert text["result"]["task_id"] == "text-demo-001"
           assert text["result"]["normalized_score"] == 95.0
           assert audio["result"]["task_id"] == "audio-demo-001"
-          assert len(history) == 2
-          assert {item["evaluation_type"] for item in history} == {"text", "audio"}
+          assert pairwise["result"]["task_id"] == "pairwise-demo-001"
+          assert pairwise["result"]["overall_preference"] == "a"
+          assert pairwise["result"]["preference_score"] == 40.0
+          assert len(history) == 3
+          assert {item["evaluation_type"] for item in history} == {"text", "audio", "pairwise"}
+
+          by_task = {item["task_id"]: item for item in history}
+          assert by_task["pairwise-demo-001"]["overall_preference"] == "a"
+          assert by_task["pairwise-demo-001"]["preference_score"] == 40.0
 
           persisted = list((workspace / "evaluations").glob("*.json"))
-          assert len(persisted) == 2
+          assert len(persisted) == 3
 
-          (temp / "export-name.txt").write_text(history[0]["filename"])
+          (temp / "export-name.txt").write_text(by_task["pairwise-demo-001"]["filename"])
           PY
 
           export_name=$(cat "$RUNNER_TEMP/export-name.txt")
@@ -189,8 +207,10 @@ jobs:
           from pathlib import Path
 
           payload = json.loads((Path(os.environ["RUNNER_TEMP"]) / "exported.json").read_text())
-          assert payload["task_id"] in {"text-demo-001", "audio-demo-001"}
-          assert "normalized_score" in payload
+          assert payload["task_id"] == "pairwise-demo-001"
+          assert payload["preference_score"] == 40.0
+          assert payload["payload"]["source"]["response_a"]
+          assert payload["payload"]["source"]["response_b"]
           PY
 
       - name: Stop workbench
@@ -258,7 +278,7 @@ jobs:
         run: |
           test -s "$E2E_ARTIFACTS/desktop.png"
           test -s "$E2E_ARTIFACTS/mobile.png"
-          test "$(find "$WORKSPACE/evaluations" -type f -name '*.json' | wc -l)" -eq 3
+          test "$(find "$WORKSPACE/evaluations" -type f -name '*.json' | wc -l)" -eq 4
           ls -lh "$E2E_ARTIFACTS"
 
       - name: Stop browser test workbench
