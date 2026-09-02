@@ -4,11 +4,11 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Human-in-the-loop evaluation toolkit for Turkish AI text, timestamped audio QA, pairwise A/B review, immutable reviewer-requested revisions, and multi-evaluator calibration.**
+**Human-in-the-loop evaluation toolkit for Turkish AI text, timestamped audio QA, pairwise A/B review, action-oriented review queues, immutable revisions, and multi-evaluator calibration.**
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into inspectable local artifacts. It is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending an automated heuristic can replace the evaluator.
 
-> **Status:** alpha (`0.7.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, two-or-more-evaluator calibration, JSON/CLI interfaces, and a localhost-only browser workbench.
+> **Status:** alpha (`0.8.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, server-side review queues and filtering, two-or-more-evaluator calibration, JSON/CLI interfaces, and localhost-only browser tools.
 
 ## Why this exists
 
@@ -23,8 +23,9 @@ The project separates:
 - **localized evidence** — timestamped audio observations that explain where an issue is audible;
 - **review** — independent reviewer and adjudicator decisions over immutable evidence;
 - **revision** — a new artifact that supersedes an older evaluation without rewriting it;
+- **queueing** — action state derived from persisted workflow/revision artifacts rather than stored as a second source of truth;
 - **calibration** — observed agreement/disagreement across independent evaluators of the same stimulus;
-- **interfaces** — CLI and local browser workbench over the same core models.
+- **interfaces** — CLI and local browser tools over the same core models and workflow APIs.
 
 ## Current capabilities
 
@@ -65,6 +66,19 @@ The project separates:
 
 Revision identity checks preserve the same task, evaluation type, rubric ID/version, and source stimulus. The evaluator may revise the human judgment and evidence fields. See [`docs/REVISION_WORKFLOW.md`](docs/REVISION_WORKFLOW.md).
 
+### Action-oriented review queue
+
+- Server-side free-text search across task, artifact, type, rubric, evaluator, and session identifiers.
+- Filters for derived action state, evaluation type, rubric ID, and evaluator ID.
+- Deterministic priority, newest, oldest, and task-ID sorting.
+- Bounded pagination up to 100 rows per request.
+- Workspace-wide action counts and filter facets.
+- Derived states: `awaiting_review`, `awaiting_revision`, `awaiting_adjudication`, `draft`, `complete`, `superseded`, and `untracked`.
+- Direct review of submitted evaluations and adjudication of escalated reviews through the existing workflow endpoints.
+- Filter state is encoded in the local `/queue` URL so a view can be reopened without creating a second saved-query store.
+
+Queue state is not persisted separately. It is reproducibly derived from the evaluation's trusted workflow and revision artifacts, so the queue cannot silently become an independent workflow authority. See [`docs/REVIEW_QUEUE.md`](docs/REVIEW_QUEUE.md).
+
 ### Multi-evaluator calibration
 
 - Two or more independent evaluators can be compared when task ID, evaluation type, rubric ID/version, and source stimulus match.
@@ -83,6 +97,7 @@ Revision identity checks preserve the same task, evaluation type, rubric ID/vers
 - Revision generation and supersession are visible in local history.
 - Dedicated **Calibration** workspace using actual saved evaluation artifacts.
 - Compatibility-grouped evaluator selection and append-only calibration history.
+- Queue-first launcher combines Workbench, Review Queue, and Calibration on the same localhost process.
 - No CDN, telemetry, or external AI-service requirement.
 - Server binds to `127.0.0.1` by default.
 
@@ -138,7 +153,7 @@ Install the optional UI dependency:
 python -m pip install -e ".[workbench]"
 ```
 
-Start the workbench:
+Start the standard evaluation workbench:
 
 ```bash
 turkisheval workbench
@@ -158,9 +173,35 @@ turkisheval workbench --no-browser
 
 The main page records evaluations and workflow state. A submitted evaluation can be accepted, escalated, or returned to the original evaluator with `request_changes`. When the evaluator creates the requested revision, the old evaluation remains immutable and the new artifact receives its own draft workflow and revision-lineage sidecar.
 
-Open **Calibration** from the header to compare two or more compatible evaluations already saved in the workspace. Evaluator identity is read from each evaluation's workflow sidecar; missing/corrupt attribution does not silently become a calibration identity.
+Open **Calibration** from the workbench header to compare two or more compatible evaluations already saved in the workspace. Evaluator identity is read from each evaluation's workflow sidecar; missing/corrupt attribution does not silently become a calibration identity.
 
 See [`docs/WORKBENCH.md`](docs/WORKBENCH.md), [`docs/REVISION_WORKFLOW.md`](docs/REVISION_WORKFLOW.md), and [`docs/CALIBRATION_DASHBOARD.md`](docs/CALIBRATION_DASHBOARD.md).
+
+## Review queue
+
+Start the combined local application and open directly into the queue:
+
+```bash
+turkisheval queue
+```
+
+The dedicated console alias is equivalent:
+
+```bash
+turkisheval-queue
+```
+
+Workspace, port, and browser flags mirror the standard workbench:
+
+```bash
+turkisheval queue --workspace ./my-evaluations --port 8765 --no-browser
+```
+
+The queue-first launcher serves the existing workbench at `/`, the review queue at `/queue`, and the calibration dashboard at `/calibration` from one loopback-only process. The queue reuses the existing review/adjudication endpoints rather than implementing a second workflow engine.
+
+The default queue order is operational, not evaluative: awaiting adjudication → awaiting review → awaiting revision → draft → untracked → complete → superseded. It does not imply which evaluation is more correct or valuable.
+
+See [`docs/REVIEW_QUEUE.md`](docs/REVIEW_QUEUE.md) for query semantics, facets, trust boundaries, and pagination behavior.
 
 ## Score semantics
 
@@ -205,32 +246,31 @@ Workbench-managed artifact classes remain separate:
     └── <task>-<timestamp>.calibration.json
 ```
 
-Evaluation artifacts are append-only. Workflow sidecars advance state while retaining the complete event chain. Revision sidecars are immutable and record server-owned parent/root lineage. Calibration reports are derived append-only artifacts over explicit source evaluations.
+Evaluation artifacts are append-only. Workflow sidecars advance state while retaining the complete event chain. Revision sidecars are immutable and record server-owned parent/root lineage. Calibration reports are derived append-only artifacts over explicit source evaluations. Review-queue state is derived at read time and does not add another persisted artifact class.
 
-The workbench:
+The local interfaces:
 
-- performs no external LLM calls;
-- has no telemetry;
-- does not upload prompts, responses, evaluator IDs, audio references, revision data, or calibration reports;
-- does not copy referenced audio into evaluation history.
+- perform no external LLM calls;
+- have no telemetry;
+- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, or calibration reports;
+- do not copy referenced audio into evaluation history.
 
 A local-only design is not a substitute for organizational access control. Evaluators should process only material they are authorized to access and follow applicable retention/privacy requirements.
 
 ## Artifact boundaries
 
-Review, revision, adjudication, and calibration answer different questions:
+Review, revision, queueing, adjudication, and calibration answer different questions:
 
 ```text
 immutable evaluation r0
         │
+        ├─ workflow → queue projection → next human action
         ├─ review → accept / escalate → optional adjudication
-        │
         ├─ review → request_changes → immutable evaluation r1 → new workflow
-        │
         └─ calibration input with independent peer evaluations → separate report
 ```
 
-No layer silently rewrites the evaluator's previous ratings, pairwise judgments, timestamps, source content, or notes.
+The queue is a projection over persisted workflow state. No layer silently rewrites the evaluator's previous ratings, pairwise judgments, timestamps, source content, or notes.
 
 ## Non-goals
 
@@ -247,6 +287,7 @@ TurkishEvalKit does **not** currently:
 - decode referenced media or validate annotations against actual media duration;
 - turn annotation count/severity into score penalties;
 - rewrite an evaluation in place during review or revision;
+- persist queue priority as an independent workflow truth;
 - create parallel revision branches or automatically merge competing revisions.
 
 These are intentional boundaries. Human judgment remains explicit and the audit trail remains inspectable.
@@ -271,7 +312,7 @@ CI validates:
 - real localhost HTTP/persistence flows;
 - desktop and mobile Chromium workbench flows.
 
-Feature-specific gates also verify calibration and revision browser assets, JSON persistence boundaries, and artifact immutability.
+Feature-specific gates additionally verify calibration, immutable revision lineage, review-queue backend behavior, JavaScript syntax, console entry points, browser assets, and wheel packaging.
 
 ## Project map
 
@@ -285,6 +326,8 @@ src/turkishevalkit/
 ├── calibration_dashboard.py   # dashboard/history adapter
 ├── workflow.py                # review/revision/adjudication lifecycle
 ├── revision.py                # immutable superseding-artifact lineage
+├── review_queue.py            # queue projection/filter/sort/pagination engine
+├── review_queue_app.py        # queue routes and queue-first local launcher
 ├── serialization.py           # JSON boundaries
 ├── cli.py                     # command-line interface
 ├── workbench.py               # localhost Flask adapter
@@ -298,6 +341,7 @@ src/turkishevalkit/
 - [`docs/AUDIO_ANNOTATIONS.md`](docs/AUDIO_ANNOTATIONS.md) — timestamped evidence model
 - [`docs/REVIEW_WORKFLOW.md`](docs/REVIEW_WORKFLOW.md) — evaluator/reviewer/adjudicator lifecycle
 - [`docs/REVISION_WORKFLOW.md`](docs/REVISION_WORKFLOW.md) — request-changes and immutable revision lineage
+- [`docs/REVIEW_QUEUE.md`](docs/REVIEW_QUEUE.md) — action-state derivation, filtering, pagination, and queue trust boundary
 - [`docs/CALIBRATION.md`](docs/CALIBRATION.md) — agreement engine and metric semantics
 - [`docs/CALIBRATION_DASHBOARD.md`](docs/CALIBRATION_DASHBOARD.md) — browser dashboard and history
 - [`docs/WORKBENCH.md`](docs/WORKBENCH.md) — local browser workflow
@@ -307,10 +351,10 @@ src/turkishevalkit/
 
 Near-term work remains ordered around evaluator correctness rather than surface area:
 
-1. queue/filtering tools for larger local review and revision sets;
-2. richer calibration drill-down without turning disagreement into a leaderboard;
-3. population-level reliability statistics only with explicit assumptions and sufficiently sized repeated-task datasets;
-4. stronger import/export interoperability while preserving local-first defaults;
+1. richer calibration drill-down without turning disagreement into a leaderboard;
+2. population-level reliability statistics only with explicit assumptions and sufficiently sized repeated-task datasets;
+3. stronger import/export interoperability while preserving local-first defaults;
+4. optional rebuildable metadata indexing only when local workspace scale justifies it;
 5. explicit branching semantics only if real collaborative revision use cases justify the complexity.
 
 ## License
