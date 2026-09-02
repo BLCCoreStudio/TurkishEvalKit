@@ -1,0 +1,197 @@
+{
+  "minimum_task_count": 3,
+  "tasks": [
+    {
+      "submissions": [
+        {
+          "evaluator_id": "evaluator-a",
+          "evaluation": {
+            "task_id": "reliability-text-01",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 5},
+              {"criterion_id": "instruction_following", "score": 5},
+              {"criterion_id": "factuality", "score": 5},
+              {"criterion_id": "helpfulness", "score": 4},
+              {"criterion_id": "locale_fit", "score": 5}
+            ],
+            "source": {
+              "prompt": "İki faktörlü kimlik doğrulama neden kullanılır?",
+              "response": "İki faktörlü kimlik doğrulama, parola ele geçirilse bile hesaba giriş için ikinci bir doğrulama adımı ister."
+            }
+          }
+        },
+        {
+          "evaluator_id": "evaluator-b",
+          "evaluation": {
+            "task_id": "reliability-text-01",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 5},
+              {"criterion_id": "instruction_following", "score": 4},
+              {"criterion_id": "factuality", "score": 5},
+              {"criterion_id": "helpfulness", "score": 4},
+              {"criterion_id": "locale_fit", "score": 5}
+            ],
+            "source": {
+              "prompt": "İki faktörlü kimlik doğrulama neden kullanılır?",
+              "response": "İki faktörlü kimlik doğrulama, parola ele geçirilse bile hesaba giriş için ikinci bir doğrulama adımı ister."
+            }
+          }
+        },
+        {
+          "evaluator_id": "evaluator-c",
+          "evaluation": {
+            "task_id": "reliability-text-01",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 5},
+              {"criterion_id": "instruction_following", "score": 5},
+              {"criterion_id": "factuality", "score": 5},
+              {"criterion_id": "helpfulness", "score": 5},
+              {"criterion_id": "locale_fit", "score": 5}
+            ],
+            "source": {
+              "prompt": "İki faktörlü kimlik doğrulama neden kullanılır?",
+              "response": "İki faktörlü kimlik doğrulama, parola ele geçirilse bile hesaba giriş için ikinci bir doğrulama adımı ister."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "submissions": [
+        {
+          "evaluator_id": "evaluator-a",
+          "evaluation": {
+            "task_id": "reliability-text-02",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 4},
+              {"criterion_id": "instruction_following", "score": 4},
+              {"criterion_id": "factuality", "score": 4},
+              {"criterion_id": "helpfulness", "score": 4},
+              {"criterion_id": "locale_fit", "score": 5}
+            ],
+            "source": {
+              "prompt": "Bir yazılım güncellemesini neden doğrulamak gerekir?",
+              "response": "Güncellemenin kaynağını ve bütünlüğünü doğrulamak, değiştirilmiş veya sahte paketlerin kurulma riskini azaltır."
+            }
+          }
+        },
+        {
+          "evaluator_id": "evaluator-b",
+          "evaluation": {
+            "task_id": "reliability-text-02",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 4},
+              {"criterion_id": "instruction_following", "score": 4},
+              {"criterion_id": "factuality", "score": 5},
+              {"criterion_id": "helpfulness", "score": 4},
+              {"criterion_id": "locale_fit", "score": 4}
+            ],
+            "source": {
+              "prompt": "Bir yazılım güncellemesini neden doğrulamak gerekir?",
+              "response": "Güncellemenin kaynağını ve bütünlüğünü doğrulamak, değiştirilmiş veya sahte paketlerin kurulma riskini azaltır."
+            }
+          }
+        },
+        {
+          "evaluator_id": "evaluator-c",
+          "evaluation": {
+            "task_id": "reliability-text-02",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 4},
+              {"criterion_id": "instruction_following", "score": 5},
+              {"criterion_id": "factuality", "score": 4},
+              {"criterion_id": "helpfulness", "score": 4},
+              {"criterion_id": "locale_fit", "score": 5}
+            ],
+            "source": {
+              "prompt": "Bir yazılım güncellemesini neden doğrulamak gerekir?",
+              "response": "Güncellemenin kaynağını ve bütünlüğünü doğrulamak, değiştirilmiş veya sahte paketlerin kurulma riskini azaltır."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "submissions": [
+        {
+          "evaluator_id": "evaluator-a",
+          "evaluation": {
+            "task_id": "reliability-text-03",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 3},
+              {"criterion_id": "instruction_following", "score": 4},
+              {"criterion_id": "factuality", "score": 4},
+              {"criterion_id": "helpfulness", "score": 3},
+              {"criterion_id": "locale_fit", "score": 4}
+            ],
+            "source": {
+              "prompt": "Açık kaynak bir projede hata raporu nasıl daha faydalı olur?",
+              "response": "Yeniden üretme adımları, beklenen ve gerçekleşen davranış, sürüm bilgisi ve ilgili günlüklar birlikte verilmelidir."
+            }
+          }
+        },
+        {
+          "evaluator_id": "evaluator-b",
+          "evaluation": {
+            "task_id": "reliability-text-03",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 4},
+              {"criterion_id": "instruction_following", "score": 4},
+              {"criterion_id": "factuality", "score": 4},
+              {"criterion_id": "helpfulness", "score": 3},
+              {"criterion_id": "locale_fit", "score": 3}
+            ],
+            "source": {
+              "prompt": "Açık kaynak bir projede hata raporu nasıl daha faydalı olur?",
+              "response": "Yeniden üretme adımları, beklenen ve gerçekleşen davranış, sürüm bilgisi ve ilgili günlüklar birlikte verilmelidir."
+            }
+          }
+        },
+        {
+          "evaluator_id": "evaluator-c",
+          "evaluation": {
+            "task_id": "reliability-text-03",
+            "evaluation_type": "text",
+            "rubric_id": "tr-text-quality",
+            "rubric_version": "1.0",
+            "ratings": [
+              {"criterion_id": "fluency", "score": 3},
+              {"criterion_id": "instruction_following", "score": 4},
+              {"criterion_id": "factuality", "score": 4},
+              {"criterion_id": "helpfulness", "score": 4},
+              {"criterion_id": "locale_fit", "score": 4}
+            ],
+            "source": {
+              "prompt": "Açık kaynak bir projede hata raporu nasıl daha faydalı olur?",
+              "response": "Yeniden üretme adımları, beklenen ve gerçekleşen davranış, sürüm bilgisi ve ilgili günlüklar birlikte verilmelidir."
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
