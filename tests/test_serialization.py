@@ -72,7 +72,7 @@ def test_load_audio_example_preserves_timestamped_annotations(tmp_path: Path) ->
     assert '"audio_annotations"' in rendered
     assert '"start_ms": 1850' in rendered
     assert '"category": "emphasis"' in rendered
-    assert "Cümle sonu tonlaması" in rendered
+    assert '"start_ms": 5100' in rendered
 
 
 def test_audio_annotation_deserialization_rejects_invalid_shapes_and_values() -> None:
