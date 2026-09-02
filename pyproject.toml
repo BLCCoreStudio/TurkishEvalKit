@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turkishevalkit"
-version = "0.8.0"
-description = "Human-in-the-loop Turkish AI evaluation workbench with review queues, immutable revisions, calibration, audio QA, and local history."
+version = "0.9.0"
+description = "Human-in-the-loop Turkish AI evaluation workbench with review queues, disagreement drill-down, immutable revisions, calibration, and audio QA."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
