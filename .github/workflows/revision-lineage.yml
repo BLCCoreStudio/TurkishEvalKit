@@ -1,0 +1,91 @@
+name: Revision Lineage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/revision-lineage.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/revision.py"
+      - "src/turkishevalkit/workflow.py"
+      - "src/turkishevalkit/serialization.py"
+      - "src/turkishevalkit/workbench.py"
+      - "src/turkishevalkit/templates/workbench.html"
+      - "src/turkishevalkit/static/revision_workbench.js"
+      - "src/turkishevalkit/static/revision_history.js"
+      - "tests/test_revision.py"
+      - "tests/test_workflow_revision.py"
+      - "tests/test_workbench_revision.py"
+      - "tests/test_workbench_revision_edges.py"
+  pull_request:
+    paths:
+      - ".github/workflows/revision-lineage.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/revision.py"
+      - "src/turkishevalkit/workflow.py"
+      - "src/turkishevalkit/serialization.py"
+      - "src/turkishevalkit/workbench.py"
+      - "src/turkishevalkit/templates/workbench.html"
+      - "src/turkishevalkit/static/revision_workbench.js"
+      - "src/turkishevalkit/static/revision_history.js"
+      - "tests/test_revision.py"
+      - "tests/test_workflow_revision.py"
+      - "tests/test_workbench_revision.py"
+      - "tests/test_workbench_revision_edges.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: revision-lineage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  revision-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Revision backend tests
+        run: >-
+          pytest -q
+          tests/test_revision.py
+          tests/test_workflow_revision.py
+          tests/test_workbench_revision.py
+          tests/test_workbench_revision_edges.py
+
+      - name: JavaScript syntax
+        run: |
+          node --check src/turkishevalkit/static/revision_workbench.js
+          node --check src/turkishevalkit/static/revision_history.js
+
+      - name: Wheel revision assets
+        run: |
+          rm -rf /tmp/turkishevalkit-revision-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-revision-wheel
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(Path("/tmp/turkishevalkit-revision-wheel").glob("turkishevalkit-*.whl"))
+          required = {
+              "turkishevalkit/templates/workbench.html",
+              "turkishevalkit/static/revision_workbench.js",
+              "turkishevalkit/static/revision_history.js",
+          }
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          missing = required - names
+          if missing:
+              raise SystemExit(f"missing revision workbench assets: {sorted(missing)}")
+          PY
