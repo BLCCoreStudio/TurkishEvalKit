@@ -37,8 +37,8 @@ def test_text_disagreement_exposes_rating_pairs_and_notes() -> None:
     ]
     pair = instruction.pair_disagreements[0]
     assert pair.gap == 1
-    assert pair.note_a == "İstenen kapsamı doğrudan karşılıyor."
-    assert pair.note_b == "İsteği karşılıyor; biraz daha kısa olabilirdi."
+    assert pair.note_a == "\u0130stenen kapsam\u0131 do\u011frudan kar\u015f\u0131l\u0131yor."
+    assert pair.note_b == "\u0130ste\u011fi kar\u015f\u0131l\u0131yor; biraz daha k\u0131sa olabilirdi."
 
     unanimous = next(item for item in report.criteria if item.criterion_id == "fluency")
     assert unanimous.disagreement_pair_count == 0
@@ -90,7 +90,7 @@ def test_audio_disagreement_exposes_unmatched_and_temporal_evidence() -> None:
     assert len(pair.unmatched_b) == 1
     assert pair.unmatched_b[0].category == "noise"
     assert pair.unmatched_b[0].start_ms == 7000
-    assert "gürültü" in pair.unmatched_b[0].note
+    assert "g\u00fcr\u00fclt\u00fc" in pair.unmatched_b[0].note
 
     assert len(pair.matched_variances) == 2
     by_category = {item.left.category: item for item in pair.matched_variances}
