@@ -7,6 +7,7 @@
     activeCompatibilityKey: null,
     history: [],
     activeHistoryFilename: null,
+    disagreementRequest: 0,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -24,6 +25,21 @@
   function formatNumber(value, digits = 2) {
     if (value === null || value === undefined) return "—";
     return Number(value).toFixed(digits).replace(/\.00$/, "");
+  }
+
+  function preferenceLabel(value) {
+    if (value === "a") return "A";
+    if (value === "b") return "B";
+    if (value === "tie") return "Tie";
+    return String(value || "—");
+  }
+
+  function formatTimestampMs(value) {
+    const milliseconds = Math.max(0, Number(value) || 0);
+    const totalSeconds = milliseconds / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds - minutes * 60;
+    return `${String(minutes).padStart(2, "0")}:${seconds.toFixed(3).padStart(6, "0")}`;
   }
 
   function setMessage(text, isError = false) {
@@ -321,6 +337,250 @@
     }
   }
 
+  function resetDisagreementExplorer() {
+    state.disagreementRequest += 1;
+    $("disagreementExplorerSection").classList.add("hidden");
+    $("disagreementStatus").textContent = "";
+    $("disagreementStatus").classList.remove("error");
+    $("disagreementSummary").replaceChildren();
+    $("disputedCriteria").replaceChildren();
+    $("overallPreferenceRows").replaceChildren();
+    $("audioEvidencePairs").replaceChildren();
+    $("overallPreferenceDifferences").classList.add("hidden");
+    $("audioEvidenceDifferences").classList.add("hidden");
+  }
+
+  function observationCard(observation) {
+    const card = document.createElement("div");
+    card.className = "observation-detail";
+    const head = document.createElement("div");
+    head.className = "observation-detail-head";
+    const evaluator = document.createElement("strong");
+    evaluator.textContent = observation.evaluator_id;
+    const value = document.createElement("span");
+    value.className = "observation-value";
+    value.textContent = preferenceLabel(observation.value);
+    head.append(evaluator, value);
+    const note = document.createElement("p");
+    note.textContent = observation.note || "No criterion-specific evidence note.";
+    if (!observation.note) note.classList.add("muted-copy");
+    card.append(head, note);
+    return card;
+  }
+
+  function pairDifferenceRow(pair) {
+    const row = document.createElement("div");
+    row.className = "pair-difference";
+    const head = document.createElement("strong");
+    head.textContent = `${pair.evaluator_a} ↔ ${pair.evaluator_b}`;
+    const values = document.createElement("span");
+    const gap = pair.gap === null || pair.gap === undefined ? "" : ` · gap ${pair.gap}`;
+    values.textContent = `${preferenceLabel(pair.value_a)} ↔ ${preferenceLabel(pair.value_b)}${gap}`;
+    row.append(head, values);
+    if (pair.note_a || pair.note_b) {
+      const notes = document.createElement("div");
+      notes.className = "pair-note-grid";
+      const left = document.createElement("p");
+      left.textContent = pair.note_a || "No note.";
+      const right = document.createElement("p");
+      right.textContent = pair.note_b || "No note.";
+      notes.append(left, right);
+      row.appendChild(notes);
+    }
+    return row;
+  }
+
+  function renderCriterionDrilldown(report) {
+    const target = $("disputedCriteria");
+    target.replaceChildren();
+    const disputed = (report.criteria || []).filter((item) => item.disagreement_pair_count > 0);
+    if (!disputed.length) {
+      target.appendChild(emptyState("No criterion-level disagreement was observed in this calibration."));
+      return;
+    }
+
+    for (const criterion of disputed) {
+      const card = document.createElement("article");
+      card.className = "disagreement-card";
+      const head = document.createElement("div");
+      head.className = "disagreement-card-head";
+      const titleWrap = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = criterion.criterion_label || criterion.criterion_id;
+      const id = document.createElement("code");
+      id.textContent = criterion.criterion_id;
+      titleWrap.append(title, id);
+      const stats = document.createElement("span");
+      stats.textContent = `${criterion.disagreement_pair_count}/${criterion.total_pair_count} pairs differ · exact ${formatPercent(criterion.exact_agreement_rate)}`;
+      head.append(titleWrap, stats);
+
+      const observations = document.createElement("div");
+      observations.className = "observation-detail-grid";
+      for (const observation of criterion.observations || []) {
+        observations.appendChild(observationCard(observation));
+      }
+
+      const pairList = document.createElement("div");
+      pairList.className = "difference-list";
+      for (const pair of criterion.pair_disagreements || []) {
+        pairList.appendChild(pairDifferenceRow(pair));
+      }
+      card.append(head, observations, pairList);
+      target.appendChild(card);
+    }
+  }
+
+  function renderOverallDifferences(report) {
+    const section = $("overallPreferenceDifferences");
+    const target = $("overallPreferenceRows");
+    target.replaceChildren();
+    const rows = report.overall_preference_differences || [];
+    section.classList.toggle("hidden", rows.length === 0);
+    for (const item of rows) {
+      const row = document.createElement("div");
+      row.className = "pair-difference";
+      const head = document.createElement("strong");
+      head.textContent = `${item.evaluator_a} ↔ ${item.evaluator_b}`;
+      const values = document.createElement("span");
+      values.textContent = `${preferenceLabel(item.preference_a)} (strength ${item.strength_a}) ↔ ${preferenceLabel(item.preference_b)} (strength ${item.strength_b})`;
+      const meta = document.createElement("small");
+      meta.textContent = item.preference_changed
+        ? `Overall direction differs · strength gap ${item.strength_gap}`
+        : `Same overall direction · strength gap ${item.strength_gap}`;
+      row.append(head, values, meta);
+      target.appendChild(row);
+    }
+  }
+
+  function audioEvidenceCard(evidence) {
+    const card = document.createElement("div");
+    card.className = "audio-evidence-card";
+    const head = document.createElement("div");
+    head.className = "audio-evidence-head";
+    const category = document.createElement("strong");
+    category.textContent = evidence.category;
+    const time = document.createElement("span");
+    const range = evidence.start_ms === evidence.end_ms
+      ? formatTimestampMs(evidence.start_ms)
+      : `${formatTimestampMs(evidence.start_ms)}–${formatTimestampMs(evidence.end_ms)}`;
+    time.textContent = `${range} · ${evidence.severity}`;
+    head.append(category, time);
+    const note = document.createElement("p");
+    note.textContent = evidence.note;
+    card.append(head, note);
+    return card;
+  }
+
+  function evidenceGroup(titleText, evidence) {
+    const group = document.createElement("div");
+    group.className = "audio-evidence-group";
+    const title = document.createElement("strong");
+    title.textContent = titleText;
+    group.appendChild(title);
+    for (const item of evidence) group.appendChild(audioEvidenceCard(item));
+    return group;
+  }
+
+  function renderAudioEvidenceDifferences(report) {
+    const section = $("audioEvidenceDifferences");
+    const target = $("audioEvidencePairs");
+    target.replaceChildren();
+    const pairs = report.audio_pair_disagreements || [];
+    section.classList.toggle("hidden", pairs.length === 0);
+
+    for (const pair of pairs) {
+      const card = document.createElement("article");
+      card.className = "disagreement-card audio-disagreement-card";
+      const head = document.createElement("div");
+      head.className = "disagreement-card-head";
+      const title = document.createElement("strong");
+      title.textContent = `${pair.evaluator_a} ↔ ${pair.evaluator_b}`;
+      const stats = document.createElement("span");
+      stats.textContent = `${pair.unmatched_a.length + pair.unmatched_b.length} unmatched · ${pair.matched_variances.length} matched variance`;
+      head.append(title, stats);
+      card.appendChild(head);
+
+      const unmatchedGrid = document.createElement("div");
+      unmatchedGrid.className = "audio-unmatched-grid";
+      if (pair.unmatched_a.length) {
+        unmatchedGrid.appendChild(evidenceGroup(`Only ${pair.evaluator_a}`, pair.unmatched_a));
+      }
+      if (pair.unmatched_b.length) {
+        unmatchedGrid.appendChild(evidenceGroup(`Only ${pair.evaluator_b}`, pair.unmatched_b));
+      }
+      if (unmatchedGrid.childElementCount) card.appendChild(unmatchedGrid);
+
+      for (const variance of pair.matched_variances || []) {
+        const varianceCard = document.createElement("div");
+        varianceCard.className = "matched-variance";
+        const varianceHead = document.createElement("div");
+        varianceHead.className = "matched-variance-head";
+        const titleText = document.createElement("strong");
+        titleText.textContent = `Matched ${variance.left.category} evidence`;
+        const meta = document.createElement("span");
+        meta.textContent = `Temporal ${formatPercent(variance.temporal_similarity)} · ${variance.severity_match ? "same severity" : "severity differs"}`;
+        varianceHead.append(titleText, meta);
+        const pairGrid = document.createElement("div");
+        pairGrid.className = "audio-unmatched-grid";
+        pairGrid.append(
+          evidenceGroup(variance.left.evaluator_id, [variance.left]),
+          evidenceGroup(variance.right.evaluator_id, [variance.right])
+        );
+        varianceCard.append(varianceHead, pairGrid);
+        card.appendChild(varianceCard);
+      }
+      target.appendChild(card);
+    }
+  }
+
+  function renderDisagreementExplorer(report) {
+    const section = $("disagreementExplorerSection");
+    section.classList.remove("hidden");
+    $("disagreementStatus").textContent = "";
+    $("disagreementStatus").classList.remove("error");
+    $("disagreementSummary").replaceChildren(
+      metricCard("Disputed criteria", `${report.disputed_criterion_count}/${report.criterion_count}`),
+      metricCard("Differing criterion pairs", String(report.disputed_criterion_pair_count ?? 0)),
+      metricCard(
+        "Holistic pairwise differences",
+        String((report.overall_preference_differences || []).length)
+      ),
+      metricCard("Audio evidence pairs", String((report.audio_pair_disagreements || []).length))
+    );
+    renderCriterionDrilldown(report);
+    renderOverallDifferences(report);
+    renderAudioEvidenceDifferences(report);
+  }
+
+  async function loadDisagreements(filename) {
+    resetDisagreementExplorer();
+    if (!filename) return;
+    const requestId = ++state.disagreementRequest;
+    const section = $("disagreementExplorerSection");
+    const status = $("disagreementStatus");
+    section.classList.remove("hidden");
+    status.textContent = "Loading evidence-level disagreement details…";
+    try {
+      const response = await fetch(
+        `/api/calibrations/${encodeURIComponent(filename)}/disagreements`
+      );
+      const payload = await response.json();
+      if (requestId !== state.disagreementRequest) return;
+      if (!response.ok) {
+        throw new Error(payload.error || "Disagreement details are unavailable.");
+      }
+      renderDisagreementExplorer(payload);
+    } catch (error) {
+      if (requestId !== state.disagreementRequest) return;
+      status.textContent = error instanceof Error ? error.message : String(error);
+      status.classList.add("error");
+      $("disagreementSummary").replaceChildren();
+      $("disputedCriteria").replaceChildren();
+      $("overallPreferenceDifferences").classList.add("hidden");
+      $("audioEvidenceDifferences").classList.add("hidden");
+    }
+  }
+
   function renderReport(artifact) {
     const report = artifact.report || {};
     const filename = artifact.filename || artifact._filename || "";
@@ -333,6 +593,7 @@
     renderAggregates(report);
     renderCriteria(report);
     renderAudio(report);
+    void loadDisagreements(filename);
     reportPanel.classList.remove("hidden");
     reportPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   }
