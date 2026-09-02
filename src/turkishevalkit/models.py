@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class EvaluationType(str, Enum):
+class EvaluationType(StrEnum):
     """Supported human-evaluation task families in the current stable core."""
 
     TEXT = "text"
