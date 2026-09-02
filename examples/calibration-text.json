@@ -1,0 +1,46 @@
+{
+  "submissions": [
+    {
+      "evaluator_id": "evaluator-a",
+      "evaluation": {
+        "task_id": "text-calibration-001",
+        "evaluation_type": "text",
+        "rubric_id": "tr-text-quality",
+        "rubric_version": "1.0",
+        "source": {
+          "prompt": "İki faktörlü kimlik doğrulamanın neden önemli olduğunu kısa ve açık şekilde anlat.",
+          "response": "İki faktörlü kimlik doğrulama, parolanız ele geçirilse bile hesabınıza giriş için ikinci bir doğrulama adımı ister. Bu nedenle tek başına parola kullanımına göre hesap ele geçirme riskini azaltır."
+        },
+        "ratings": [
+          {"criterion_id": "fluency", "score": 5, "note": "Akıcı ve doğal."},
+          {"criterion_id": "instruction_following", "score": 5, "note": "İstenen kapsamı doğrudan karşılıyor."},
+          {"criterion_id": "factuality", "score": 5, "note": "Temel açıklama doğru."},
+          {"criterion_id": "helpfulness", "score": 4, "note": "Yeterli fakat örnek eklenebilirdi."},
+          {"criterion_id": "locale_fit", "score": 5, "note": "Türkiye Türkçesine doğal uyuyor."}
+        ],
+        "metadata": {"example": true}
+      }
+    },
+    {
+      "evaluator_id": "evaluator-b",
+      "evaluation": {
+        "task_id": "text-calibration-001",
+        "evaluation_type": "text",
+        "rubric_id": "tr-text-quality",
+        "rubric_version": "1.0",
+        "source": {
+          "prompt": "İki faktörlü kimlik doğrulamanın neden önemli olduğunu kısa ve açık şekilde anlat.",
+          "response": "İki faktörlü kimlik doğrulama, parolanız ele geçirilse bile hesabınıza giriş için ikinci bir doğrulama adımı ister. Bu nedenle tek başına parola kullanımına göre hesap ele geçirme riskini azaltır."
+        },
+        "ratings": [
+          {"criterion_id": "fluency", "score": 5, "note": "Dil doğal ve akıcı."},
+          {"criterion_id": "instruction_following", "score": 4, "note": "İsteği karşılıyor; biraz daha kısa olabilirdi."},
+          {"criterion_id": "factuality", "score": 5, "note": "Doğruluk sorunu yok."},
+          {"criterion_id": "helpfulness", "score": 4, "note": "Temel faydayı yeterince açıklıyor."},
+          {"criterion_id": "locale_fit", "score": 4, "note": "Uygun fakat ifade biraz resmî."}
+        ],
+        "metadata": {"example": true}
+      }
+    }
+  ]
+}
