@@ -10,7 +10,13 @@ from statistics import mean
 from typing import Any, TypeAlias
 
 from .evaluation import EvaluationResult, evaluate_submission
-from .models import AudioAnnotation, EvaluationRecord, EvaluationType, PairwiseEvaluationRecord, Rubric
+from .models import (
+    AudioAnnotation,
+    EvaluationRecord,
+    EvaluationType,
+    PairwiseEvaluationRecord,
+    Rubric,
+)
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .serialization import record_from_dict
 
@@ -148,16 +154,21 @@ def _scalar_criterion_agreement(
 
     for criterion in rubric.criteria:
         scores = [
-            next(rating.score for rating in submission.record.ratings if rating.criterion_id == criterion.id)
+            next(
+                rating.score
+                for rating in submission.record.ratings
+                if rating.criterion_id == criterion.id
+            )
             for submission in submissions
             if isinstance(submission.record, EvaluationRecord)
         ]
         differences = [abs(left - right) for left, right in combinations(scores, 2)]
         pair_differences.extend(differences)
         observations = {str(score): scores.count(score) for score in sorted(set(scores))}
+        exact_rate = sum(diff == 0 for diff in differences) / len(differences)
         agreement[criterion.id] = CriterionAgreement(
             criterion_id=criterion.id,
-            exact_agreement_rate=_round_rate(sum(diff == 0 for diff in differences) / len(differences)),
+            exact_agreement_rate=_round_rate(exact_rate),
             observations=observations,
             mean_absolute_difference=round(mean(differences), 3),
             min_rating=min(scores),
