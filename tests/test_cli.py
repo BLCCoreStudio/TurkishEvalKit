@@ -43,3 +43,51 @@ def test_evaluate_command_rejects_missing_file() -> None:
     with pytest.raises(SystemExit) as exc_info:
         main(["evaluate", "does-not-exist.json"])
     assert exc_info.value.code == 2
+
+
+def test_workbench_command_delegates_to_local_runner(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(
+        workspace: Path | None = None,
+        *,
+        port: int = 8765,
+        open_browser: bool = True,
+    ) -> None:
+        captured.update(
+            {
+                "workspace": workspace,
+                "port": port,
+                "open_browser": open_browser,
+            }
+        )
+
+    monkeypatch.setattr("turkishevalkit.workbench.run_workbench", fake_run)
+
+    assert (
+        main(
+            [
+                "workbench",
+                "--workspace",
+                str(tmp_path),
+                "--port",
+                "9876",
+                "--no-browser",
+            ]
+        )
+        == 0
+    )
+    assert captured == {
+        "workspace": tmp_path,
+        "port": 9876,
+        "open_browser": False,
+    }
+
+
+def test_workbench_command_rejects_invalid_port() -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["workbench", "--port", "70000"])
+    assert exc_info.value.code == 2

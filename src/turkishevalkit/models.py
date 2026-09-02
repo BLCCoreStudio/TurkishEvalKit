@@ -49,11 +49,12 @@ class RubricCriterion:
 
 @dataclass(frozen=True, slots=True)
 class Rubric:
-    """A named, versioned collection of evaluation criteria."""
+    """A named, versioned collection of evaluation criteria for one task family."""
 
     id: str
     version: str
     title: str
+    evaluation_type: EvaluationType
     criteria: tuple[RubricCriterion, ...]
 
     def __post_init__(self) -> None:

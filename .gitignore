@@ -12,6 +12,7 @@ coverage.xml
 .coverage
 htmlcov/
 .DS_Store
+.turkishevalkit/
 *.wav
 *.mp3
 *.m4a

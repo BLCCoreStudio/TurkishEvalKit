@@ -1,4 +1,4 @@
-"""Command-line interface for validating and scoring evaluation records."""
+"""Command-line interface for TurkishEvalKit."""
 
 from __future__ import annotations
 
@@ -10,6 +10,13 @@ from pathlib import Path
 from .evaluation import evaluate_submission
 from .rubrics import BUILTIN_RUBRICS
 from .serialization import load_record, result_to_dict, write_result
+
+
+def _port(value: str) -> int:
+    parsed = int(value)
+    if not 1 <= parsed <= 65535:
+        raise argparse.ArgumentTypeError("port must be between 1 and 65535")
+    return parsed
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -35,6 +42,27 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Print the complete scored result as JSON.",
+    )
+
+    workbench_parser = subparsers.add_parser(
+        "workbench",
+        help="Run the localhost-only browser evaluation workbench.",
+    )
+    workbench_parser.add_argument(
+        "--workspace",
+        type=Path,
+        help="Local directory for append-only evaluation history.",
+    )
+    workbench_parser.add_argument(
+        "--port",
+        type=_port,
+        default=8765,
+        help="Local TCP port (default: 8765).",
+    )
+    workbench_parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Do not open the workbench in the default browser automatically.",
     )
     return parser
 
@@ -73,6 +101,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"{result.task_id}: {result.weighted_score:.3f}/5 "
                 f"({result.normalized_score:.2f}/100)"
             )
+        return 0
+
+    if args.command == "workbench":
+        try:
+            from .workbench import run_workbench
+
+            run_workbench(
+                workspace=args.workspace,
+                port=args.port,
+                open_browser=not args.no_browser,
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            parser.exit(2, f"error: {exc}\n")
         return 0
 
     parser.error("unsupported command")

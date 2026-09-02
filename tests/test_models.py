@@ -31,14 +31,20 @@ def test_rubric_requires_identity_criteria_and_unique_ids() -> None:
     criterion = RubricCriterion("fluency", "Fluency", "Description")
 
     with pytest.raises(ValueError, match="rubric id, version, and title must not be empty"):
-        Rubric("", "1.0", "Title", (criterion,))
+        Rubric("", "1.0", "Title", EvaluationType.TEXT, (criterion,))
 
     with pytest.raises(ValueError, match="at least one criterion"):
-        Rubric("rubric", "1.0", "Title", ())
+        Rubric("rubric", "1.0", "Title", EvaluationType.TEXT, ())
 
     duplicate = RubricCriterion("fluency", "Fluency duplicate", "Description")
     with pytest.raises(ValueError, match="criterion ids must be unique"):
-        Rubric("rubric", "1.0", "Title", (criterion, duplicate))
+        Rubric(
+            "rubric",
+            "1.0",
+            "Title",
+            EvaluationType.TEXT,
+            (criterion, duplicate),
+        )
 
 
 def test_evaluation_record_validates_required_fields() -> None:

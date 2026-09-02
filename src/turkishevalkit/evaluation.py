@@ -26,6 +26,8 @@ def evaluate_submission(record: EvaluationRecord, rubric: Rubric) -> EvaluationR
 
     if record.rubric_id != rubric.id or record.rubric_version != rubric.version:
         raise ValueError("record rubric id/version does not match the supplied rubric")
+    if record.evaluation_type is not rubric.evaluation_type:
+        raise ValueError("record evaluation_type does not match the supplied rubric")
 
     criterion_by_id = {criterion.id: criterion for criterion in rubric.criteria}
     rating_by_id = {rating.criterion_id: rating for rating in record.ratings}
@@ -51,9 +53,6 @@ def evaluate_submission(record: EvaluationRecord, rubric: Rubric) -> EvaluationR
     )
     weighted_score = weighted_sum / total_weight
     normalized_score = ((weighted_score - 1.0) / 4.0) * 100.0
-    criterion_scores = {
-        criterion.id: rating_by_id[criterion.id].score for criterion in rubric.criteria
-    }
 
     return EvaluationResult(
         task_id=record.task_id,
@@ -61,6 +60,8 @@ def evaluate_submission(record: EvaluationRecord, rubric: Rubric) -> EvaluationR
         rubric_version=rubric.version,
         weighted_score=round(weighted_score, 3),
         normalized_score=round(normalized_score, 2),
-        criterion_scores=criterion_scores,
+        criterion_scores={
+            criterion.id: rating_by_id[criterion.id].score for criterion in rubric.criteria
+        },
         payload=asdict(record),
     )

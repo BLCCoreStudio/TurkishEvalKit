@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>TurkishEvalKit Workbench</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='workbench.css') }}">
+  <script defer src="{{ url_for('static', filename='workbench.js') }}"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="brand-row">
+          <span class="brand-mark" aria-hidden="true">TE</span>
+          <div>
+            <h1>TurkishEvalKit</h1>
+            <p>Local evaluation workbench</p>
+          </div>
+        </div>
+      </div>
+      <div class="local-pill" title="The server listens on localhost only">
+        <span class="status-dot" aria-hidden="true"></span>
+        Local-only
+      </div>
+    </header>
+
+    <div class="workspace-grid">
+      <aside class="sidebar">
+        <div class="sidebar-head">
+          <div>
+            <span class="eyebrow">Workspace</span>
+            <div id="workspacePath" class="workspace-path">Loading…</div>
+          </div>
+          <button id="newButton" class="icon-button" type="button" aria-label="New evaluation">+</button>
+        </div>
+
+        <div class="history-heading">
+          <h2>Recent evaluations</h2>
+          <button id="refreshHistory" class="text-button" type="button">Refresh</button>
+        </div>
+        <div id="historyList" class="history-list" aria-live="polite"></div>
+      </aside>
+
+      <main class="main-panel">
+        <section class="intro">
+          <span class="eyebrow">Human judgment first</span>
+          <h2>Evaluate Turkish AI quality with an explicit, versioned rubric.</h2>
+          <p>
+            The workbench validates the record and computes the aggregate. It does not
+            generate the judgment for you.
+          </p>
+        </section>
+
+        <form id="evaluationForm" novalidate>
+          <section class="card">
+            <div class="section-heading">
+              <div>
+                <span class="step">01</span>
+                <h3>Task</h3>
+              </div>
+              <div class="type-switch" role="group" aria-label="Evaluation type">
+                <button class="type-button active" type="button" data-type="text">Text</button>
+                <button class="type-button" type="button" data-type="audio">Audio</button>
+              </div>
+            </div>
+
+            <label class="field">
+              <span>Task ID</span>
+              <input id="taskId" name="task_id" autocomplete="off" required>
+              <small>Stable identifier for the item being evaluated.</small>
+            </label>
+
+            <div class="rubric-summary">
+              <div>
+                <span class="field-label">Rubric</span>
+                <strong id="rubricTitle">Loading…</strong>
+              </div>
+              <code id="rubricVersion"></code>
+            </div>
+
+            <div id="sourceFields" class="source-fields"></div>
+          </section>
+
+          <section class="card">
+            <div class="section-heading">
+              <div>
+                <span class="step">02</span>
+                <h3>Rubric ratings</h3>
+              </div>
+              <span class="scale-hint">1 = poor · 5 = excellent</span>
+            </div>
+            <div id="criteriaList" class="criteria-list"></div>
+          </section>
+
+          <section class="card">
+            <div class="section-heading">
+              <div>
+                <span class="step">03</span>
+                <h3>Evaluator evidence</h3>
+              </div>
+            </div>
+
+            <div class="two-column">
+              <label class="field">
+                <span>Evaluator note</span>
+                <textarea id="evaluatorNote" rows="6"
+                  placeholder="Write the Turkish-language reasoning, observed issues, or strengths."></textarea>
+              </label>
+              <label class="field">
+                <span>English justification <em>optional</em></span>
+                <textarea id="justificationEn" rows="6"
+                  placeholder="Concise English justification for review or handoff."></textarea>
+              </label>
+            </div>
+          </section>
+
+          <div class="action-row">
+            <div id="message" class="message" role="status" aria-live="polite"></div>
+            <button id="saveButton" class="primary-button" type="submit">
+              Validate &amp; save evaluation
+            </button>
+          </div>
+        </form>
+
+        <section id="resultCard" class="result-card hidden" aria-live="polite">
+          <div>
+            <span class="eyebrow">Saved result</span>
+            <h3 id="resultScore">—</h3>
+          </div>
+          <div class="result-meta">
+            <span id="resultTask"></span>
+            <a id="resultDownload" href="#">Export JSON</a>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
