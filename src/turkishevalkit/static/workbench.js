@@ -4,18 +4,33 @@ const state = {
   config: null,
   type: "text",
   rubric: null,
+  currentArtifact: null,
+  currentWorkflow: null,
 };
 
 const byId = (id) => document.getElementById(id);
 
+function timestampToken() {
+  return new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+}
+
 function taskIdFor(type) {
-  const now = new Date();
-  const stamp = now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
-  return `${type}-${stamp}`;
+  return `${type}-${timestampToken()}`;
+}
+
+function sessionIdFor() {
+  const random = Math.random().toString(36).slice(2, 8);
+  return `session-${timestampToken()}-${random}`;
 }
 
 function setMessage(text, kind = "") {
   const node = byId("message");
+  node.textContent = text;
+  node.className = `message ${kind}`.trim();
+}
+
+function setWorkflowMessage(text, kind = "") {
+  const node = byId("workflowMessage");
   node.textContent = text;
   node.className = `message ${kind}`.trim();
 }
@@ -40,6 +55,41 @@ function preferenceLabel(value) {
     return normalized.toUpperCase();
   }
   return "—";
+}
+
+function titleCaseToken(value) {
+  return String(value || "")
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function loadSessionDefaults() {
+  const evaluatorId = localStorage.getItem("turkishevalkit.evaluatorId") || "evaluator-local";
+  const sessionId = localStorage.getItem("turkishevalkit.sessionId") || sessionIdFor();
+  byId("evaluatorId").value = evaluatorId;
+  byId("sessionId").value = sessionId;
+  localStorage.setItem("turkishevalkit.evaluatorId", evaluatorId);
+  localStorage.setItem("turkishevalkit.sessionId", sessionId);
+}
+
+function persistSessionFields() {
+  const evaluatorId = byId("evaluatorId").value.trim();
+  const sessionId = byId("sessionId").value.trim();
+  if (evaluatorId) {
+    localStorage.setItem("turkishevalkit.evaluatorId", evaluatorId);
+  }
+  if (sessionId) {
+    localStorage.setItem("turkishevalkit.sessionId", sessionId);
+  }
+}
+
+function newSession() {
+  const sessionId = sessionIdFor();
+  byId("sessionId").value = sessionId;
+  localStorage.setItem("turkishevalkit.sessionId", sessionId);
+  setWorkflowMessage("");
 }
 
 function renderSourceFields() {
@@ -212,6 +262,16 @@ function renderPairwiseOverall() {
   container.classList.remove("hidden");
 }
 
+function resetResultAndWorkflow() {
+  state.currentArtifact = null;
+  state.currentWorkflow = null;
+  byId("resultCard").classList.add("hidden");
+  byId("workflowCard").classList.add("hidden");
+  byId("workflowControls").replaceChildren();
+  byId("workflowEvents").replaceChildren();
+  setWorkflowMessage("");
+}
+
 function setType(type) {
   state.type = type;
   state.rubric = state.config.rubrics.find((item) => item.evaluation_type === type);
@@ -235,7 +295,7 @@ function setType(type) {
   renderPairwiseOverall();
   byId("evaluatorNote").value = "";
   byId("justificationEn").value = "";
-  byId("resultCard").classList.add("hidden");
+  resetResultAndWorkflow();
   setMessage("");
 }
 
@@ -288,6 +348,15 @@ function buildPayload() {
   if (!taskId) {
     throw new Error("Task ID is required.");
   }
+  const evaluatorId = byId("evaluatorId").value.trim();
+  const sessionId = byId("sessionId").value.trim();
+  if (!evaluatorId) {
+    throw new Error("Evaluator ID is required for workflow attribution.");
+  }
+  if (!sessionId) {
+    throw new Error("Session ID is required for workflow attribution.");
+  }
+  persistSessionFields();
 
   const common = {
     task_id: taskId,
@@ -299,6 +368,10 @@ function buildPayload() {
     source: collectSource(),
     metadata: {
       client: "local-workbench",
+    },
+    workflow_context: {
+      evaluator_id: evaluatorId,
+      session_id: sessionId,
     },
   };
 
@@ -340,6 +413,252 @@ function formatSigned(value) {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}`;
 }
 
+function renderResult(result, filename) {
+  const evaluationType = result.payload ? result.payload.evaluation_type : "";
+  if (evaluationType === "pairwise") {
+    const outcome = preferenceOutcome(result.overall_preference);
+    const score = Number(result.preference_score);
+    byId("resultScore").textContent = `${outcome} · ${formatSigned(score)} A↔B`;
+  } else {
+    const score = Number(result.normalized_score);
+    byId("resultScore").textContent = `${score.toFixed(2)} / 100`;
+  }
+  byId("resultTask").textContent = result.task_id;
+  byId("resultDownload").href = `/api/history/${encodeURIComponent(filename)}`;
+  byId("resultCard").classList.remove("hidden");
+}
+
+function workflowStateLabel(value) {
+  const labels = {
+    draft: "Draft",
+    submitted: "Submitted",
+    reviewed: "Reviewed",
+    adjudicated: "Adjudicated",
+  };
+  return labels[value] || titleCaseToken(value) || "—";
+}
+
+function renderWorkflowEvents(workflow) {
+  const container = byId("workflowEvents");
+  container.replaceChildren();
+  for (const event of workflow.events) {
+    const row = document.createElement("div");
+    row.className = "workflow-event";
+    const marker = document.createElement("span");
+    marker.className = "workflow-event-marker";
+    marker.textContent = String(event.sequence);
+
+    const copy = document.createElement("div");
+    const heading = document.createElement("strong");
+    heading.textContent = `${titleCaseToken(event.kind)} · ${event.actor_id}`;
+    const meta = document.createElement("span");
+    const extras = [];
+    if (event.review_outcome) {
+      extras.push(titleCaseToken(event.review_outcome));
+    }
+    if (event.adjudication_outcome) {
+      extras.push(titleCaseToken(event.adjudication_outcome));
+    }
+    meta.textContent = [event.actor_role, event.occurred_at, ...extras].join(" · ");
+    copy.append(heading, meta);
+    if (event.note) {
+      const note = document.createElement("p");
+      note.textContent = event.note;
+      copy.append(note);
+    }
+    row.append(marker, copy);
+    container.append(row);
+  }
+}
+
+function workflowControlField(labelText, control) {
+  const label = document.createElement("label");
+  label.className = "field workflow-field";
+  const title = document.createElement("span");
+  title.textContent = labelText;
+  label.append(title, control);
+  return label;
+}
+
+function makeTextInput(id, placeholder) {
+  const input = document.createElement("input");
+  input.id = id;
+  input.autocomplete = "off";
+  input.placeholder = placeholder;
+  return input;
+}
+
+function makeTextarea(id, placeholder) {
+  const textarea = document.createElement("textarea");
+  textarea.id = id;
+  textarea.rows = 3;
+  textarea.placeholder = placeholder;
+  return textarea;
+}
+
+function makeSelect(id, options) {
+  const select = document.createElement("select");
+  select.id = id;
+  for (const [value, labelText] of options) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = labelText;
+    select.append(option);
+  }
+  return select;
+}
+
+function makeActionButton(id, labelText) {
+  const button = document.createElement("button");
+  button.id = id;
+  button.type = "button";
+  button.className = "primary-button workflow-action";
+  button.textContent = labelText;
+  return button;
+}
+
+function renderWorkflowControls(workflow) {
+  const container = byId("workflowControls");
+  container.replaceChildren();
+  setWorkflowMessage("");
+
+  if (workflow.state === "draft") {
+    const copy = document.createElement("p");
+    copy.className = "workflow-guidance";
+    copy.textContent = "The evaluation is saved as a draft. Submission freezes this artifact for independent review.";
+    const note = makeTextarea("submitNote", "Optional handoff note for the reviewer.");
+    const button = makeActionButton("submitWorkflowButton", "Submit for review");
+    container.append(copy, workflowControlField("Handoff note", note), button);
+    button.addEventListener("click", () => postWorkflowAction("submit", {
+      actor_id: workflow.session.evaluator_id,
+      note: note.value.trim(),
+    }));
+    return;
+  }
+
+  if (workflow.state === "submitted") {
+    const grid = document.createElement("div");
+    grid.className = "workflow-control-grid";
+    const reviewer = makeTextInput("reviewerId", "Independent reviewer ID");
+    const outcome = makeSelect("reviewOutcome", [
+      ["accept", "Accept evaluation"],
+      ["escalate", "Escalate disagreement"],
+    ]);
+    grid.append(
+      workflowControlField("Reviewer ID", reviewer),
+      workflowControlField("Review outcome", outcome),
+    );
+    const note = makeTextarea(
+      "reviewNote",
+      "Required when escalating; optional evidence note when accepting.",
+    );
+    const button = makeActionButton("reviewWorkflowButton", "Record review");
+    container.append(grid, workflowControlField("Review note", note), button);
+    button.addEventListener("click", () => postWorkflowAction("review", {
+      actor_id: reviewer.value.trim(),
+      outcome: outcome.value,
+      note: note.value.trim(),
+    }));
+    return;
+  }
+
+  const latestReview = [...workflow.events].reverse().find((event) => event.review_outcome);
+  if (workflow.state === "reviewed" && latestReview && latestReview.review_outcome === "escalate") {
+    const grid = document.createElement("div");
+    grid.className = "workflow-control-grid";
+    const adjudicator = makeTextInput("adjudicatorId", "Independent adjudicator ID");
+    const outcome = makeSelect("adjudicationOutcome", [
+      ["evaluation_upheld", "Original evaluation upheld"],
+      ["review_concern_upheld", "Reviewer concern upheld"],
+      ["inconclusive", "Inconclusive"],
+    ]);
+    grid.append(
+      workflowControlField("Adjudicator ID", adjudicator),
+      workflowControlField("Resolution", outcome),
+    );
+    const note = makeTextarea("adjudicationNote", "Required independent resolution evidence.");
+    const button = makeActionButton("adjudicateWorkflowButton", "Record adjudication");
+    container.append(grid, workflowControlField("Resolution note", note), button);
+    button.addEventListener("click", () => postWorkflowAction("adjudicate", {
+      actor_id: adjudicator.value.trim(),
+      outcome: outcome.value,
+      note: note.value.trim(),
+    }));
+    return;
+  }
+
+  const copy = document.createElement("p");
+  copy.className = "workflow-guidance terminal";
+  if (workflow.state === "reviewed") {
+    copy.textContent = "Independent review accepted this evaluation. No adjudication is required.";
+  } else {
+    const latest = workflow.events[workflow.events.length - 1];
+    copy.textContent = `Adjudication complete: ${titleCaseToken(latest.adjudication_outcome)}.`;
+  }
+  container.append(copy);
+}
+
+function renderWorkflow(workflow, filename) {
+  state.currentArtifact = filename;
+  state.currentWorkflow = workflow;
+  if (!workflow) {
+    byId("workflowCard").classList.add("hidden");
+    return;
+  }
+
+  byId("workflowTitle").textContent = workflow.task_id;
+  byId("workflowState").textContent = workflowStateLabel(workflow.state);
+  byId("workflowState").dataset.state = workflow.state;
+  byId("workflowSession").textContent = workflow.session.session_id;
+  byId("workflowEvaluator").textContent = workflow.session.evaluator_id;
+  renderWorkflowEvents(workflow);
+  renderWorkflowControls(workflow);
+  byId("workflowCard").classList.remove("hidden");
+}
+
+async function postWorkflowAction(action, payload) {
+  if (!state.currentArtifact) {
+    setWorkflowMessage("No evaluation workflow is selected.", "error");
+    return;
+  }
+  setWorkflowMessage("Validating workflow transition…");
+  try {
+    const response = await fetch(
+      `/api/workflows/${encodeURIComponent(state.currentArtifact)}/${action}`,
+      {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      },
+    );
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || "Workflow transition failed.");
+    }
+    renderWorkflow(body.workflow, state.currentArtifact);
+    setWorkflowMessage("Workflow updated.", "success");
+    await refreshHistory();
+  } catch (error) {
+    setWorkflowMessage(error.message, "error");
+  }
+}
+
+async function loadHistoryItem(filename) {
+  setWorkflowMessage("");
+  try {
+    const response = await fetch(`/api/history/${encodeURIComponent(filename)}/details`);
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || "Evaluation details could not be loaded.");
+    }
+    renderResult(body.evaluation, filename);
+    renderWorkflow(body.workflow, filename);
+    byId("resultCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+}
+
 async function refreshHistory() {
   const container = byId("historyList");
   try {
@@ -359,11 +678,13 @@ async function refreshHistory() {
     }
 
     for (const item of payload.items.slice(0, 40)) {
-      const link = document.createElement("a");
-      link.className = "history-item";
-      link.href = `/api/history/${encodeURIComponent(item.filename)}`;
-      link.title = "Download saved JSON";
+      const card = document.createElement("article");
+      card.className = "history-item";
 
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "history-open";
+      open.title = "Open evaluation workflow";
       const title = document.createElement("strong");
       title.textContent = item.task_id || item.filename;
       const meta = document.createElement("span");
@@ -376,8 +697,22 @@ async function refreshHistory() {
           `${item.evaluation_type || "evaluation"} · ` +
           `${Number.isFinite(score) ? score.toFixed(2) : "—"}/100`;
       }
-      link.append(title, meta);
-      container.append(link);
+      open.append(title, meta);
+      open.addEventListener("click", () => loadHistoryItem(item.filename));
+
+      const footer = document.createElement("div");
+      footer.className = "history-footer";
+      const workflow = document.createElement("span");
+      workflow.className = `history-workflow ${item.workflow_state || "untracked"}`;
+      workflow.textContent = item.workflow_state ? workflowStateLabel(item.workflow_state) : "Untracked";
+      const download = document.createElement("a");
+      download.href = `/api/history/${encodeURIComponent(item.filename)}`;
+      download.textContent = "JSON";
+      download.title = "Download saved JSON";
+      footer.append(workflow, download);
+
+      card.append(open, footer);
+      container.append(card);
     }
   } catch (error) {
     container.textContent = "Could not load local history.";
@@ -410,17 +745,8 @@ async function saveEvaluation(event) {
       throw new Error(body.error || "Evaluation could not be saved.");
     }
 
-    if (state.type === "pairwise") {
-      const outcome = preferenceOutcome(body.result.overall_preference);
-      const score = Number(body.result.preference_score);
-      byId("resultScore").textContent = `${outcome} · ${formatSigned(score)} A↔B`;
-    } else {
-      const score = Number(body.result.normalized_score);
-      byId("resultScore").textContent = `${score.toFixed(2)} / 100`;
-    }
-    byId("resultTask").textContent = body.result.task_id;
-    byId("resultDownload").href = `/api/history/${encodeURIComponent(body.filename)}`;
-    byId("resultCard").classList.remove("hidden");
+    renderResult(body.result, body.filename);
+    renderWorkflow(body.workflow, body.filename);
     setMessage("Saved to the local workspace.", "success");
     await refreshHistory();
   } catch (error) {
@@ -432,6 +758,7 @@ async function saveEvaluation(event) {
 
 async function boot() {
   try {
+    loadSessionDefaults();
     const response = await fetch("/api/config");
     if (!response.ok) {
       throw new Error("Configuration request failed.");
@@ -453,5 +780,8 @@ for (const button of document.querySelectorAll(".type-button")) {
 byId("evaluationForm").addEventListener("submit", saveEvaluation);
 byId("newButton").addEventListener("click", () => setType(state.type));
 byId("refreshHistory").addEventListener("click", refreshHistory);
+byId("newSessionButton").addEventListener("click", newSession);
+byId("evaluatorId").addEventListener("change", persistSessionFields);
+byId("sessionId").addEventListener("change", persistSessionFields);
 
 boot();

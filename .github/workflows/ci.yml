@@ -142,9 +142,25 @@ jobs:
           test -s "$RUNNER_TEMP/workbench.js"
           node --check "$RUNNER_TEMP/workbench.js"
 
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path("examples/text-evaluation.json").read_text(encoding="utf-8"))
+          data["workflow_context"] = {
+              "session_id": "live-session-001",
+              "evaluator_id": "live-evaluator-01",
+          }
+          Path(os.environ["RUNNER_TEMP"], "text-workflow.json").write_text(
+              json.dumps(data, ensure_ascii=False),
+              encoding="utf-8",
+          )
+          PY
+
           curl --fail --silent --show-error \
             -H "Content-Type: application/json" \
-            --data-binary @examples/text-evaluation.json \
+            --data-binary @"$RUNNER_TEMP/text-workflow.json" \
             "http://127.0.0.1:$PORT/api/evaluations" \
             > "$RUNNER_TEMP/text-created.json"
 
@@ -159,6 +175,50 @@ jobs:
             --data-binary @examples/pairwise-evaluation.json \
             "http://127.0.0.1:$PORT/api/evaluations" \
             > "$RUNNER_TEMP/pairwise-created.json"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          temp = Path(os.environ["RUNNER_TEMP"])
+          text = json.loads((temp / "text-created.json").read_text())
+          assert text["workflow"]["state"] == "draft"
+          assert text["workflow"]["session"]["session_id"] == "live-session-001"
+          assert text["workflow"]["session"]["evaluator_id"] == "live-evaluator-01"
+          (temp / "text-name.txt").write_text(text["filename"])
+          PY
+
+          text_name=$(cat "$RUNNER_TEMP/text-name.txt")
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/api/history/$text_name" \
+            > "$RUNNER_TEMP/text-before-workflow.json"
+
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            --data '{"actor_id":"live-evaluator-01","note":"Ready for review."}' \
+            "http://127.0.0.1:$PORT/api/workflows/$text_name/submit" \
+            > "$RUNNER_TEMP/text-submitted.json"
+
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            --data '{"actor_id":"live-reviewer-01","outcome":"escalate","note":"Factuality evidence requires independent resolution."}' \
+            "http://127.0.0.1:$PORT/api/workflows/$text_name/review" \
+            > "$RUNNER_TEMP/text-reviewed.json"
+
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            --data '{"actor_id":"live-adjudicator-01","outcome":"review_concern_upheld","note":"Independent evidence confirms the reviewer concern."}' \
+            "http://127.0.0.1:$PORT/api/workflows/$text_name/adjudicate" \
+            > "$RUNNER_TEMP/text-adjudicated.json"
+
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/api/history/$text_name/details" \
+            > "$RUNNER_TEMP/text-details.json"
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/api/history/$text_name" \
+            > "$RUNNER_TEMP/text-after-workflow.json"
+          cmp "$RUNNER_TEMP/text-before-workflow.json" "$RUNNER_TEMP/text-after-workflow.json"
 
           curl --fail --silent --show-error \
             "http://127.0.0.1:$PORT/api/history" \
@@ -175,10 +235,23 @@ jobs:
           text = json.loads((temp / "text-created.json").read_text())
           audio = json.loads((temp / "audio-created.json").read_text())
           pairwise = json.loads((temp / "pairwise-created.json").read_text())
+          submitted = json.loads((temp / "text-submitted.json").read_text())["workflow"]
+          reviewed = json.loads((temp / "text-reviewed.json").read_text())["workflow"]
+          adjudicated = json.loads((temp / "text-adjudicated.json").read_text())["workflow"]
+          details = json.loads((temp / "text-details.json").read_text())
           history = json.loads((temp / "history.json").read_text())["items"]
 
           assert text["result"]["task_id"] == "text-demo-001"
           assert text["result"]["normalized_score"] == 95.0
+          assert submitted["state"] == "submitted"
+          assert reviewed["state"] == "reviewed"
+          assert reviewed["events"][-1]["review_outcome"] == "escalate"
+          assert adjudicated["state"] == "adjudicated"
+          assert adjudicated["events"][-1]["adjudication_outcome"] == "review_concern_upheld"
+          assert [event["sequence"] for event in adjudicated["events"]] == [1, 2, 3, 4]
+          assert details["evaluation"]["task_id"] == "text-demo-001"
+          assert details["workflow"]["state"] == "adjudicated"
+
           assert audio["result"]["task_id"] == "audio-demo-001"
           assert pairwise["result"]["task_id"] == "pairwise-demo-001"
           assert pairwise["result"]["overall_preference"] == "a"
@@ -187,11 +260,16 @@ jobs:
           assert {item["evaluation_type"] for item in history} == {"text", "audio", "pairwise"}
 
           by_task = {item["task_id"]: item for item in history}
+          assert by_task["text-demo-001"]["workflow_state"] == "adjudicated"
+          assert by_task["text-demo-001"]["review_outcome"] == "escalate"
+          assert by_task["text-demo-001"]["adjudication_outcome"] == "review_concern_upheld"
           assert by_task["pairwise-demo-001"]["overall_preference"] == "a"
           assert by_task["pairwise-demo-001"]["preference_score"] == 40.0
 
           persisted = list((workspace / "evaluations").glob("*.json"))
+          workflows = list((workspace / "workflows").glob("*.workflow.json"))
           assert len(persisted) == 3
+          assert len(workflows) == 1
 
           (temp / "export-name.txt").write_text(by_task["pairwise-demo-001"]["filename"])
           PY
@@ -279,6 +357,7 @@ jobs:
           test -s "$E2E_ARTIFACTS/desktop.png"
           test -s "$E2E_ARTIFACTS/mobile.png"
           test "$(find "$WORKSPACE/evaluations" -type f -name '*.json' | wc -l)" -eq 4
+          test "$(find "$WORKSPACE/workflows" -type f -name '*.workflow.json' | wc -l)" -eq 4
           ls -lh "$E2E_ARTIFACTS"
 
       - name: Stop browser test workbench

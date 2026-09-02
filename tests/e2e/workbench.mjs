@@ -50,6 +50,36 @@ async function waitForSaved(page, taskId) {
     .waitFor({ state: "attached" });
 }
 
+async function exerciseReviewWorkflow(page, taskId) {
+  await page.locator("#workflowCard:not(.hidden)").waitFor();
+  assert.equal(await page.locator("#workflowState").textContent(), "Draft");
+  assert.equal(await page.locator("#workflowEvaluator").textContent(), "evaluator-local");
+  assert.match(await page.locator("#workflowSession").textContent(), /^session-/);
+
+  await page.locator("#submitWorkflowButton").click();
+  await page.locator("#workflowMessage").filter({ hasText: "Workflow updated." }).waitFor();
+  assert.equal(await page.locator("#workflowState").textContent(), "Submitted");
+
+  await page.locator("#reviewerId").fill("reviewer-e2e");
+  await page.locator("#reviewOutcome").selectOption("escalate");
+  await page.locator("#reviewNote").fill("Factuality evidence requires independent resolution.");
+  await page.locator("#reviewWorkflowButton").click();
+  await page.locator("#workflowMessage").filter({ hasText: "Workflow updated." }).waitFor();
+  assert.equal(await page.locator("#workflowState").textContent(), "Reviewed");
+
+  await page.locator("#adjudicatorId").fill("adjudicator-e2e");
+  await page.locator("#adjudicationOutcome").selectOption("review_concern_upheld");
+  await page.locator("#adjudicationNote").fill("Independent adjudication confirms the reviewer concern.");
+  await page.locator("#adjudicateWorkflowButton").click();
+  await page.locator("#workflowMessage").filter({ hasText: "Workflow updated." }).waitFor();
+  assert.equal(await page.locator("#workflowState").textContent(), "Adjudicated");
+  assert.match(await page.locator("#workflowControls").textContent(), /Review Concern Upheld/);
+  assert.equal(await page.locator("#workflowEvents .workflow-event").count(), 4);
+
+  const history = page.locator("#historyList .history-item", { hasText: taskId });
+  await history.locator(".history-workflow", { hasText: "Adjudicated" }).waitFor();
+}
+
 async function exerciseDesktop(browser) {
   const context = await browser.newContext({
     acceptDownloads: true,
@@ -66,6 +96,8 @@ async function exerciseDesktop(browser) {
   assert.equal(await page.title(), "TurkishEvalKit Workbench");
   assert.match(await page.locator("#rubricVersion").textContent(), /^tr-text-quality@/);
   assert.ok(await page.getByRole("button", { name: "Pairwise" }).isVisible());
+  assert.equal(await page.locator("#evaluatorId").inputValue(), "evaluator-local");
+  assert.match(await page.locator("#sessionId").inputValue(), /^session-/);
 
   await page.locator("#saveButton").click();
   await page.locator("#message").filter({ hasText: "Rate every rubric criterion before saving." }).waitFor();
@@ -83,6 +115,8 @@ async function exerciseDesktop(browser) {
   assert.equal(await page.locator("#resultScore").textContent(), "100.00 / 100");
   const textHistory = page.locator("#historyList .history-item", { hasText: textTask });
   assert.match(await textHistory.textContent(), /text · 100\.00\/100/);
+  await exerciseReviewWorkflow(page, textTask);
+  await ensureNoHorizontalOverflow(page, "desktop adjudication workflow");
 
   const textDownloadPromise = page.waitForEvent("download");
   await page.locator("#resultDownload").click();
@@ -95,9 +129,14 @@ async function exerciseDesktop(browser) {
   assert.equal(textExported.task_id, textTask);
   assert.equal(textExported.normalized_score, 100);
 
+  const originalSession = await page.locator("#sessionId").inputValue();
+  await page.locator("#newSessionButton").click();
+  assert.notEqual(await page.locator("#sessionId").inputValue(), originalSession);
+
   await page.locator("#newButton").click();
   assert.notEqual(await page.locator("#taskId").inputValue(), textTask);
   assert.ok(await page.locator("#resultCard").evaluate((node) => node.classList.contains("hidden")));
+  assert.ok(await page.locator("#workflowCard").evaluate((node) => node.classList.contains("hidden")));
 
   await page.getByRole("button", { name: "Audio" }).click();
   await page.locator("#sourceAudioRef").waitFor();
@@ -111,6 +150,7 @@ async function exerciseDesktop(browser) {
   await page.locator("#evaluatorNote").fill("Akıcılık iyi; tonlama genel olarak doğal.");
   await page.locator("#justificationEn").fill("Fluency is strong and intonation is mostly natural.");
   await waitForSaved(page, audioTask);
+  assert.equal(await page.locator("#workflowState").textContent(), "Draft");
 
   await page.getByRole("button", { name: "Pairwise" }).click();
   await page.locator("#sourceResponseA").waitFor();
@@ -163,6 +203,11 @@ async function exerciseDesktop(browser) {
   assert.ok(await page.locator("#historyList .history-item", { hasText: audioTask }).count());
   assert.ok(await page.locator("#historyList .history-item", { hasText: pairwiseTask }).count());
 
+  await textHistory.locator(".history-open").click();
+  await page.locator("#workflowState").filter({ hasText: "Adjudicated" }).waitFor();
+  assert.equal(await page.locator("#resultTask").textContent(), textTask);
+  assert.equal(await page.locator("#workflowEvents .workflow-event").count(), 4);
+
   await page.screenshot({ path: path.join(artifacts, "desktop.png"), fullPage: true });
   assert.deepEqual(browserErrors, [], `browser page errors: ${browserErrors.join(" | ")}`);
   await context.close();
@@ -186,6 +231,8 @@ async function exerciseMobile(browser) {
   assert.ok(await page.getByRole("button", { name: "Text" }).isVisible());
   assert.ok(await page.getByRole("button", { name: "Audio" }).isVisible());
   assert.ok(await page.getByRole("button", { name: "Pairwise" }).isVisible());
+  assert.ok(await page.locator("#evaluatorId").isVisible());
+  assert.ok(await page.locator("#sessionId").isVisible());
 
   await page.getByRole("button", { name: "Pairwise" }).click();
   await page.locator("#sourceResponseA").waitFor();
@@ -200,7 +247,12 @@ async function exerciseMobile(browser) {
   await page.locator('label[for="strength-1"]').click();
   await waitForSaved(page, "e2e-mobile-pairwise-001");
   assert.equal(await page.locator("#resultScore").textContent(), "Tie · 0.00 A↔B");
+  assert.equal(await page.locator("#workflowState").textContent(), "Draft");
   await ensureNoHorizontalOverflow(page, "mobile pairwise viewport after result rendering");
+
+  await page.locator("#submitWorkflowButton").click();
+  await page.locator("#workflowState").filter({ hasText: "Submitted" }).waitFor();
+  await ensureNoHorizontalOverflow(page, "mobile submitted workflow");
 
   await page.screenshot({ path: path.join(artifacts, "mobile.png"), fullPage: true });
   assert.deepEqual(browserErrors, [], `browser page errors: ${browserErrors.join(" | ")}`);
@@ -215,7 +267,9 @@ try {
   const files = await fs.readdir(artifacts);
   assert.ok(files.includes("desktop.png"));
   assert.ok(files.includes("mobile.png"));
-  console.log("Browser E2E passed: text, audio, and pairwise desktop/mobile UI flows, persistence, history, and JSON export.");
+  console.log(
+    "Browser E2E passed: text, audio, pairwise, evaluator sessions, review/adjudication, persistence, history, and JSON export.",
+  );
 } finally {
   await browser.close();
 }

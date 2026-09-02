@@ -48,9 +48,32 @@
           <span class="eyebrow">Human judgment first</span>
           <h2>Evaluate Turkish AI quality with an explicit, versioned rubric.</h2>
           <p>
-            The workbench validates the record and computes the aggregate. It does not
-            generate the judgment for you.
+            The workbench validates the record and computes the aggregate. Review and
+            adjudication are stored separately so later decisions never rewrite the
+            evaluator's original evidence.
           </p>
+        </section>
+
+        <section class="card session-card">
+          <div class="section-heading">
+            <div>
+              <span class="step">00</span>
+              <h3>Evaluator session</h3>
+            </div>
+            <button id="newSessionButton" class="text-button" type="button">New session</button>
+          </div>
+          <div class="session-grid">
+            <label class="field">
+              <span>Evaluator ID</span>
+              <input id="evaluatorId" autocomplete="off" placeholder="e.g. evaluator-01">
+              <small>Local identifier used to attribute the original judgment.</small>
+            </label>
+            <label class="field">
+              <span>Session ID</span>
+              <input id="sessionId" autocomplete="off">
+              <small>Groups related evaluations without sending identity data anywhere.</small>
+            </label>
+          </div>
         </section>
 
         <form id="evaluationForm" novalidate>
@@ -135,6 +158,31 @@
             <span id="resultTask"></span>
             <a id="resultDownload" href="#">Export JSON</a>
           </div>
+        </section>
+
+        <section id="workflowCard" class="card workflow-card hidden" aria-live="polite">
+          <div class="workflow-heading">
+            <div>
+              <span class="eyebrow">Review workflow</span>
+              <h3 id="workflowTitle">Evaluation workflow</h3>
+            </div>
+            <span id="workflowState" class="workflow-state">—</span>
+          </div>
+
+          <div class="workflow-context">
+            <div>
+              <span class="field-label">Session</span>
+              <strong id="workflowSession">—</strong>
+            </div>
+            <div>
+              <span class="field-label">Evaluator</span>
+              <strong id="workflowEvaluator">—</strong>
+            </div>
+          </div>
+
+          <div id="workflowEvents" class="workflow-events"></div>
+          <div id="workflowControls" class="workflow-controls"></div>
+          <div id="workflowMessage" class="message" role="status" aria-live="polite"></div>
         </section>
       </main>
     </div>

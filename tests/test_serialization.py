@@ -8,7 +8,20 @@ from turkishevalkit.evaluation import evaluate_submission
 from turkishevalkit.models import EvaluationType, PairwiseEvaluationRecord, Preference
 from turkishevalkit.pairwise import evaluate_pairwise_submission
 from turkishevalkit.rubrics import PAIRWISE_QUALITY_RUBRIC, TEXT_QUALITY_RUBRIC
-from turkishevalkit.serialization import load_record, write_result
+from turkishevalkit.serialization import (
+    load_record,
+    workflow_from_dict,
+    workflow_to_dict,
+    write_result,
+)
+from turkishevalkit.workflow import (
+    AdjudicationOutcome,
+    ReviewOutcome,
+    adjudicate_workflow,
+    create_workflow,
+    review_workflow,
+    submit_workflow,
+)
 
 
 def test_load_example_and_write_result(tmp_path: Path) -> None:
@@ -46,6 +59,57 @@ def test_load_pairwise_example_and_write_result(tmp_path: Path) -> None:
     assert '"overall_preference": "a"' in rendered
     assert '"response_a"' in rendered
     assert '"response_b"' in rendered
+
+
+def test_workflow_round_trip_preserves_event_chain() -> None:
+    workflow = create_workflow(
+        artifact_id="artifact.json",
+        task_id="task-001",
+        session_id="session-001",
+        evaluator_id="eval-01",
+        occurred_at="2026-09-02T10:00:00Z",
+    )
+    workflow = submit_workflow(
+        workflow,
+        actor_id="eval-01",
+        occurred_at="2026-09-02T10:05:00Z",
+    )
+    workflow = review_workflow(
+        workflow,
+        reviewer_id="reviewer-01",
+        outcome=ReviewOutcome.ESCALATE,
+        note="The factuality evidence conflicts with the submitted score.",
+        occurred_at="2026-09-02T10:10:00Z",
+    )
+    workflow = adjudicate_workflow(
+        workflow,
+        adjudicator_id="adjudicator-01",
+        outcome=AdjudicationOutcome.REVIEW_CONCERN_UPHELD,
+        note="Independent review confirms the factuality concern.",
+        occurred_at="2026-09-02T10:15:00Z",
+    )
+
+    restored = workflow_from_dict(workflow_to_dict(workflow))
+
+    assert restored == workflow
+    assert restored.review_outcome is ReviewOutcome.ESCALATE
+    assert restored.adjudication_outcome is AdjudicationOutcome.REVIEW_CONCERN_UPHELD
+    assert [event.sequence for event in restored.events] == [1, 2, 3, 4]
+
+
+def test_workflow_deserialization_rejects_invalid_state_chain() -> None:
+    workflow = create_workflow(
+        artifact_id="artifact.json",
+        task_id="task-001",
+        session_id="session-001",
+        evaluator_id="eval-01",
+        occurred_at="2026-09-02T10:00:00Z",
+    )
+    payload = workflow_to_dict(workflow)
+    payload["state"] = "submitted"
+
+    with pytest.raises(ValueError, match="state must match"):
+        workflow_from_dict(payload)
 
 
 def test_invalid_json_is_reported(tmp_path: Path) -> None:
