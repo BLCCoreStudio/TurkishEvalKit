@@ -1,0 +1,87 @@
+{
+  "submissions": [
+    {
+      "evaluator_id": "evaluator-a",
+      "evaluation": {
+        "task_id": "audio-calibration-001",
+        "evaluation_type": "audio",
+        "rubric_id": "tr-audio-quality",
+        "rubric_version": "1.0",
+        "source": {
+          "asset_id": "sample-tr-calibration-001",
+          "transcript": "Bugün İstanbul'da hava parçalı bulutlu olacak.",
+          "audio_path": "local-only/sample-tr-calibration-001.wav"
+        },
+        "ratings": [
+          {"criterion_id": "nativeness", "score": 4},
+          {"criterion_id": "pronunciation", "score": 5},
+          {"criterion_id": "fluency", "score": 5},
+          {"criterion_id": "intonation", "score": 4},
+          {"criterion_id": "audio_artifacts", "score": 5}
+        ],
+        "audio_annotations": [
+          {
+            "start_ms": 1850,
+            "end_ms": 2550,
+            "category": "emphasis",
+            "severity": "minor",
+            "note": "İstanbul sözcüğündeki vurgu hafif sentetik duyuluyor."
+          },
+          {
+            "start_ms": 5100,
+            "end_ms": 5100,
+            "category": "intonation",
+            "severity": "minor",
+            "note": "Cümle sonu tonlaması düzleşiyor."
+          }
+        ],
+        "metadata": {"example": true}
+      }
+    },
+    {
+      "evaluator_id": "evaluator-b",
+      "evaluation": {
+        "task_id": "audio-calibration-001",
+        "evaluation_type": "audio",
+        "rubric_id": "tr-audio-quality",
+        "rubric_version": "1.0",
+        "source": {
+          "asset_id": "sample-tr-calibration-001",
+          "transcript": "Bugün İstanbul'da hava parçalı bulutlu olacak.",
+          "audio_path": "local-only/sample-tr-calibration-001.wav"
+        },
+        "ratings": [
+          {"criterion_id": "nativeness", "score": 4},
+          {"criterion_id": "pronunciation", "score": 4},
+          {"criterion_id": "fluency", "score": 5},
+          {"criterion_id": "intonation", "score": 3},
+          {"criterion_id": "audio_artifacts", "score": 5}
+        ],
+        "audio_annotations": [
+          {
+            "start_ms": 1900,
+            "end_ms": 2500,
+            "category": "emphasis",
+            "severity": "minor",
+            "note": "Vurgu doğal konuşmaya göre hafif yapay."
+          },
+          {
+            "start_ms": 5200,
+            "end_ms": 5200,
+            "category": "intonation",
+            "severity": "minor",
+            "note": "Cümle sonundaki tonlama fazla düz."
+          },
+          {
+            "start_ms": 7000,
+            "end_ms": 7200,
+            "category": "noise",
+            "severity": "minor",
+            "note": "Arka planda kısa ve hafif bir gürültü duyuluyor."
+          }
+        ],
+        "metadata": {"example": true}
+      }
+    }
+  ]
+}
