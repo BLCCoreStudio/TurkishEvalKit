@@ -35,7 +35,10 @@ function renderSourceFields() {
           placeholder="Paste the Turkish response being evaluated."></textarea>
       </label>
     `;
-  } else {
+    return;
+  }
+
+  if (state.type === "audio") {
     container.innerHTML = `
       <label class="field">
         <span>Audio reference</span>
@@ -49,7 +52,64 @@ function renderSourceFields() {
           placeholder="Optional transcript or context needed for pronunciation and prosody review."></textarea>
       </label>
     `;
+    return;
   }
+
+  container.innerHTML = `
+    <label class="field">
+      <span>Prompt / instruction</span>
+      <textarea id="sourcePrompt" rows="4"
+        placeholder="The same Turkish prompt shown to both candidates."></textarea>
+    </label>
+    <div class="candidate-grid">
+      <label class="field candidate candidate-a">
+        <span>Response A</span>
+        <textarea id="sourceResponseA" rows="10"
+          placeholder="Paste candidate A exactly as evaluated."></textarea>
+      </label>
+      <label class="field candidate candidate-b">
+        <span>Response B</span>
+        <textarea id="sourceResponseB" rows="10"
+          placeholder="Paste candidate B exactly as evaluated."></textarea>
+      </label>
+    </div>
+  `;
+}
+
+function renderScalarCriterion(row, criterion) {
+  const scores = document.createElement("div");
+  scores.className = "score-group";
+  for (let score = 1; score <= 5; score += 1) {
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = `score-${criterion.id}`;
+    input.id = `score-${criterion.id}-${score}`;
+    input.value = String(score);
+
+    const label = document.createElement("label");
+    label.htmlFor = input.id;
+    label.textContent = String(score);
+    scores.append(input, label);
+  }
+  row.append(scores);
+}
+
+function renderPairwiseCriterion(row, criterion) {
+  const choices = document.createElement("div");
+  choices.className = "score-group preference-group";
+  for (const [value, labelText] of [["a", "A"], ["tie", "Tie"], ["b", "B"]]) {
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = `preference-${criterion.id}`;
+    input.id = `preference-${criterion.id}-${value}`;
+    input.value = value;
+
+    const label = document.createElement("label");
+    label.htmlFor = input.id;
+    label.textContent = labelText;
+    choices.append(input, label);
+  }
+  row.append(choices);
 }
 
 function renderCriteria() {
@@ -58,7 +118,7 @@ function renderCriteria() {
 
   for (const criterion of state.rubric.criteria) {
     const row = document.createElement("div");
-    row.className = "criterion";
+    row.className = `criterion ${state.type === "pairwise" ? "pairwise-criterion" : ""}`.trim();
     row.dataset.criterion = criterion.id;
 
     const description = document.createElement("div");
@@ -67,20 +127,12 @@ function renderCriteria() {
     const detail = document.createElement("p");
     detail.textContent = criterion.description;
     description.append(title, detail);
+    row.append(description);
 
-    const scores = document.createElement("div");
-    scores.className = "score-group";
-    for (let score = 1; score <= 5; score += 1) {
-      const input = document.createElement("input");
-      input.type = "radio";
-      input.name = `score-${criterion.id}`;
-      input.id = `score-${criterion.id}-${score}`;
-      input.value = String(score);
-
-      const label = document.createElement("label");
-      label.htmlFor = input.id;
-      label.textContent = String(score);
-      scores.append(input, label);
+    if (state.type === "pairwise") {
+      renderPairwiseCriterion(row, criterion);
+    } else {
+      renderScalarCriterion(row, criterion);
     }
 
     const note = document.createElement("input");
@@ -89,14 +141,61 @@ function renderCriteria() {
     note.placeholder = "Criterion note (optional)";
     note.autocomplete = "off";
 
-    row.append(description, scores, note);
+    row.append(note);
     container.append(row);
   }
+}
+
+function renderPairwiseOverall() {
+  const container = byId("pairwiseOverall");
+  if (state.type !== "pairwise") {
+    container.replaceChildren();
+    container.classList.add("hidden");
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="overall-copy">
+      <span class="field-label">Overall decision</span>
+      <strong>Which response is better overall?</strong>
+      <p>Use Tie only when neither candidate is meaningfully preferable.</p>
+    </div>
+    <div class="overall-controls">
+      <div>
+        <span class="field-label">Preference</span>
+        <div class="score-group preference-group overall-preference" role="radiogroup"
+          aria-label="Overall preference">
+          <input type="radio" name="overall-preference" id="overall-a" value="a">
+          <label for="overall-a">A</label>
+          <input type="radio" name="overall-preference" id="overall-tie" value="tie">
+          <label for="overall-tie">Tie</label>
+          <input type="radio" name="overall-preference" id="overall-b" value="b">
+          <label for="overall-b">B</label>
+        </div>
+      </div>
+      <div>
+        <span class="field-label">Strength</span>
+        <div class="score-group strength-group" role="radiogroup"
+          aria-label="Preference strength">
+          <input type="radio" name="preference-strength" id="strength-1" value="1">
+          <label for="strength-1" title="Slight preference">1</label>
+          <input type="radio" name="preference-strength" id="strength-2" value="2">
+          <label for="strength-2" title="Moderate preference">2</label>
+          <input type="radio" name="preference-strength" id="strength-3" value="3">
+          <label for="strength-3" title="Strong preference">3</label>
+        </div>
+      </div>
+    </div>
+  `;
+  container.classList.remove("hidden");
 }
 
 function setType(type) {
   state.type = type;
   state.rubric = state.config.rubrics.find((item) => item.evaluation_type === type);
+  if (!state.rubric) {
+    throw new Error(`No built-in rubric is available for ${type}.`);
+  }
 
   for (const button of document.querySelectorAll(".type-button")) {
     button.classList.toggle("active", button.dataset.type === type);
@@ -105,8 +204,13 @@ function setType(type) {
   byId("taskId").value = taskIdFor(type);
   byId("rubricTitle").textContent = state.rubric.title;
   byId("rubricVersion").textContent = `${state.rubric.id}@${state.rubric.version}`;
+  byId("criteriaHeading").textContent =
+    type === "pairwise" ? "Criterion preferences" : "Rubric ratings";
+  byId("scaleHint").textContent =
+    type === "pairwise" ? "Choose A, Tie, or B for every criterion" : "1 = poor · 5 = excellent";
   renderSourceFields();
   renderCriteria();
+  renderPairwiseOverall();
   byId("evaluatorNote").value = "";
   byId("justificationEn").value = "";
   byId("resultCard").classList.add("hidden");
@@ -125,6 +229,18 @@ function collectRatings() {
   });
 }
 
+function collectJudgments() {
+  return state.rubric.criteria.map((criterion) => {
+    const checked = document.querySelector(`input[name="preference-${criterion.id}"]:checked`);
+    const note = document.querySelector(`[data-note-for="${criterion.id}"]`);
+    return {
+      criterion_id: criterion.id,
+      preference: checked ? checked.value : null,
+      note: note.value.trim(),
+    };
+  });
+}
+
 function collectSource() {
   if (state.type === "text") {
     return {
@@ -132,29 +248,30 @@ function collectSource() {
       response: byId("sourceResponse").value,
     };
   }
+  if (state.type === "audio") {
+    return {
+      audio_ref: byId("sourceAudioRef").value,
+      transcript: byId("sourceTranscript").value,
+    };
+  }
   return {
-    audio_ref: byId("sourceAudioRef").value,
-    transcript: byId("sourceTranscript").value,
+    prompt: byId("sourcePrompt").value,
+    response_a: byId("sourceResponseA").value,
+    response_b: byId("sourceResponseB").value,
   };
 }
 
 function buildPayload() {
-  const ratings = collectRatings();
-  if (ratings.some((item) => item.score === null)) {
-    throw new Error("Rate every rubric criterion before saving.");
-  }
-
   const taskId = byId("taskId").value.trim();
   if (!taskId) {
     throw new Error("Task ID is required.");
   }
 
-  return {
+  const common = {
     task_id: taskId,
     evaluation_type: state.type,
     rubric_id: state.rubric.id,
     rubric_version: state.rubric.version,
-    ratings,
     evaluator_note: byId("evaluatorNote").value.trim(),
     justification_en: byId("justificationEn").value.trim(),
     source: collectSource(),
@@ -162,6 +279,43 @@ function buildPayload() {
       client: "local-workbench",
     },
   };
+
+  if (state.type === "pairwise") {
+    const judgments = collectJudgments();
+    if (judgments.some((item) => item.preference === null)) {
+      throw new Error("Choose A, Tie, or B for every rubric criterion before saving.");
+    }
+    const overall = document.querySelector('input[name="overall-preference"]:checked');
+    if (!overall) {
+      throw new Error("Choose an overall A, Tie, or B preference before saving.");
+    }
+    const strength = document.querySelector('input[name="preference-strength"]:checked');
+    if (!strength) {
+      throw new Error("Choose preference strength from 1 to 3 before saving.");
+    }
+    return {
+      ...common,
+      judgments,
+      overall_preference: overall.value,
+      preference_strength: Number(strength.value),
+    };
+  }
+
+  const ratings = collectRatings();
+  if (ratings.some((item) => item.score === null)) {
+    throw new Error("Rate every rubric criterion before saving.");
+  }
+  return {
+    ...common,
+    ratings,
+  };
+}
+
+function formatSigned(value) {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}`;
 }
 
 async function refreshHistory() {
@@ -191,10 +345,15 @@ async function refreshHistory() {
       const title = document.createElement("strong");
       title.textContent = item.task_id || item.filename;
       const meta = document.createElement("span");
-      const score = Number(item.normalized_score);
-      meta.textContent =
-        `${item.evaluation_type || "evaluation"} · ` +
-        `${Number.isFinite(score) ? score.toFixed(2) : "—"}/100`;
+      if (item.evaluation_type === "pairwise") {
+        const preference = String(item.overall_preference || "—").toUpperCase();
+        meta.textContent = `pairwise · ${preference} · ${formatSigned(Number(item.preference_score))} A↔B`;
+      } else {
+        const score = Number(item.normalized_score);
+        meta.textContent =
+          `${item.evaluation_type || "evaluation"} · ` +
+          `${Number.isFinite(score) ? score.toFixed(2) : "—"}/100`;
+      }
       link.append(title, meta);
       container.append(link);
     }
@@ -229,8 +388,14 @@ async function saveEvaluation(event) {
       throw new Error(body.error || "Evaluation could not be saved.");
     }
 
-    const score = Number(body.result.normalized_score);
-    byId("resultScore").textContent = `${score.toFixed(2)} / 100`;
+    if (state.type === "pairwise") {
+      const preference = String(body.result.overall_preference).toUpperCase();
+      const score = Number(body.result.preference_score);
+      byId("resultScore").textContent = `${preference} preferred · ${formatSigned(score)} A↔B`;
+    } else {
+      const score = Number(body.result.normalized_score);
+      byId("resultScore").textContent = `${score.toFixed(2)} / 100`;
+    }
     byId("resultTask").textContent = body.result.task_id;
     byId("resultDownload").href = `/api/history/${encodeURIComponent(body.filename)}`;
     byId("resultCard").classList.remove("hidden");
