@@ -8,6 +8,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .evaluation import evaluate_submission
+from .models import PairwiseEvaluationRecord
+from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .rubrics import BUILTIN_RUBRICS
 from .serialization import load_record, result_to_dict, write_result
 
@@ -87,8 +89,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ValueError(
                     f"unknown rubric '{record.rubric_id}'; available rubrics: {available}"
                 )
-            result = evaluate_submission(record, rubric)
-        except (OSError, ValueError) as exc:
+            if isinstance(record, PairwiseEvaluationRecord):
+                result = evaluate_pairwise_submission(record, rubric)
+            else:
+                result = evaluate_submission(record, rubric)
+        except (OSError, TypeError, ValueError) as exc:
             parser.exit(2, f"error: {exc}\n")
 
         if args.output is not None:
@@ -96,6 +101,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.json:
             print(json.dumps(result_to_dict(result), ensure_ascii=False, indent=2))
+        elif isinstance(result, PairwiseEvaluationResult):
+            preference = result.overall_preference.value.upper()
+            print(
+                f"{result.task_id}: {preference} preferred · "
+                f"criterion preference {result.preference_score:+.2f}/100 · "
+                f"strength {result.preference_strength}/3"
+            )
         else:
             print(
                 f"{result.task_id}: {result.weighted_score:.3f}/5 "
