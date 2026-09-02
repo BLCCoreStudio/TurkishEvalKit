@@ -1,0 +1,79 @@
+name: Review Queue
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/review-queue.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/review_queue.py"
+      - "src/turkishevalkit/review_queue_app.py"
+      - "src/turkishevalkit/templates/review_queue.html"
+      - "src/turkishevalkit/static/review_queue.css"
+      - "src/turkishevalkit/static/review_queue.js"
+      - "tests/test_review_queue.py"
+      - "tests/test_review_queue_app.py"
+  pull_request:
+    paths:
+      - ".github/workflows/review-queue.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/review_queue.py"
+      - "src/turkishevalkit/review_queue_app.py"
+      - "src/turkishevalkit/templates/review_queue.html"
+      - "src/turkishevalkit/static/review_queue.css"
+      - "src/turkishevalkit/static/review_queue.js"
+      - "tests/test_review_queue.py"
+      - "tests/test_review_queue_app.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: review-queue-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  queue-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Queue backend tests
+        run: pytest -q tests/test_review_queue.py tests/test_review_queue_app.py
+
+      - name: JavaScript syntax
+        run: node --check src/turkishevalkit/static/review_queue.js
+
+      - name: Console entry point
+        run: turkisheval-queue --help
+
+      - name: Wheel queue assets
+        run: |
+          rm -rf /tmp/turkishevalkit-queue-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-queue-wheel
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(Path("/tmp/turkishevalkit-queue-wheel").glob("turkishevalkit-*.whl"))
+          required = {
+              "turkishevalkit/templates/review_queue.html",
+              "turkishevalkit/static/review_queue.css",
+              "turkishevalkit/static/review_queue.js",
+          }
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          missing = required - names
+          if missing:
+              raise SystemExit(f"missing review queue assets: {sorted(missing)}")
+          PY
