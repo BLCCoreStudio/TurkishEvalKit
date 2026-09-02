@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Calibration · TurkishEvalKit</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='workbench.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='calibration.css') }}">
+  <script defer src="{{ url_for('static', filename='calibration.js') }}"></script>
+</head>
+<body>
+  <div class="app-shell calibration-shell">
+    <header class="topbar">
+      <div class="brand-row">
+        <span class="brand-mark" aria-hidden="true">TE</span>
+        <div>
+          <h1>TurkishEvalKit</h1>
+          <p>Multi-evaluator calibration</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a class="text-button" href="/">Evaluations</a>
+        <div class="local-pill" title="The server listens on localhost only">
+          <span class="status-dot" aria-hidden="true"></span>
+          Local-only
+        </div>
+      </div>
+    </header>
+
+    <main class="calibration-main">
+      <section class="intro calibration-intro">
+        <span class="eyebrow">Diagnostic agreement</span>
+        <h2>Compare independent human judgments without turning agreement into a pass/fail score.</h2>
+        <p>
+          Select two or more evaluations of the same task, rubric version, and source stimulus.
+          The dashboard computes transparent agreement metrics and stores a separate append-only
+          calibration artifact. Original evaluation and workflow records are never rewritten.
+        </p>
+      </section>
+
+      <div class="calibration-grid">
+        <section class="card selection-card">
+          <div class="section-heading">
+            <div>
+              <span class="step">01</span>
+              <h3>Select evaluator submissions</h3>
+            </div>
+            <button id="refreshCandidates" class="text-button" type="button">Refresh</button>
+          </div>
+          <p class="muted-copy">
+            Only evaluations with an evaluator identity in their workflow sidecar can be calibrated.
+            Once you select one record, the dashboard keeps selection inside its compatibility group.
+          </p>
+          <div id="candidateGroups" class="candidate-groups" aria-live="polite"></div>
+
+          <div class="calibration-actions">
+            <label class="field tolerance-field">
+              <span>Audio timestamp tolerance</span>
+              <div class="inline-input">
+                <input id="toleranceMs" type="number" min="0" max="5000" step="10" value="250">
+                <span>ms</span>
+              </div>
+              <small>Used only for timestamped audio annotation matching.</small>
+            </label>
+            <div class="submit-stack">
+              <div id="calibrationMessage" class="message" role="status" aria-live="polite"></div>
+              <button id="createCalibration" class="primary-button" type="button" disabled>
+                Generate calibration report
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="card calibration-history-card">
+          <div class="history-heading">
+            <h3>Calibration history</h3>
+            <button id="refreshCalibrations" class="text-button" type="button">Refresh</button>
+          </div>
+          <div id="calibrationHistory" class="calibration-history" aria-live="polite"></div>
+        </aside>
+      </div>
+
+      <section id="reportPanel" class="card report-panel hidden" aria-live="polite">
+        <div class="report-heading">
+          <div>
+            <span class="eyebrow">Calibration artifact</span>
+            <h3 id="reportTitle">—</h3>
+            <p id="reportSubtitle" class="muted-copy"></p>
+          </div>
+          <a id="reportDownload" class="text-button" href="#">Export JSON</a>
+        </div>
+
+        <div id="summaryMetrics" class="metric-grid"></div>
+
+        <section class="report-section">
+          <div class="section-heading compact-heading">
+            <div>
+              <span class="step">02</span>
+              <h3>Evaluator aggregates</h3>
+            </div>
+          </div>
+          <div id="aggregateScores" class="aggregate-list"></div>
+        </section>
+
+        <section class="report-section">
+          <div class="section-heading compact-heading">
+            <div>
+              <span class="step">03</span>
+              <h3>Criterion agreement</h3>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="agreement-table">
+              <thead>
+                <tr>
+                  <th>Criterion</th>
+                  <th>Agreement</th>
+                  <th>Observations</th>
+                  <th>Difference</th>
+                </tr>
+              </thead>
+              <tbody id="criterionRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="audioAgreementSection" class="report-section hidden">
+          <div class="section-heading compact-heading">
+            <div>
+              <span class="step">04</span>
+              <h3>Timestamped audio evidence</h3>
+            </div>
+          </div>
+          <div id="audioSummary" class="metric-grid compact-metrics"></div>
+          <div class="table-wrap">
+            <table class="agreement-table">
+              <thead>
+                <tr>
+                  <th>Evaluator pair</th>
+                  <th>Matched</th>
+                  <th>F1</th>
+                  <th>Severity</th>
+                  <th>Temporal similarity</th>
+                </tr>
+              </thead>
+              <tbody id="audioPairRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="diagnostic-note">
+          <strong>Interpretation boundary</strong>
+          <span>
+            These values expose disagreement for calibration and review. TurkishEvalKit does not
+            infer which evaluator is correct, rank evaluators, or apply a universal acceptance threshold.
+          </span>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,118 +1,46 @@
 # Architecture
 
-TurkishEvalKit is intentionally split so human judgment remains a domain input rather than an implementation detail hidden inside a UI or model call. Scoring, calibration, and review are separate consumers of immutable human evidence: none silently rewrites an evaluator's original judgment.
+TurkishEvalKit keeps human judgment, deterministic scoring, calibration, review state, and UI adapters separate. Later workflow or calibration activity never rewrites an evaluator's original judgment.
 
 ## Design goals
 
-1. **Human authority** — the core records and validates evaluator judgments; it does not silently replace them.
-2. **Reproducibility** — a stored result identifies the exact rubric id/version used to compute it.
-3. **Auditability** — scoring is deterministic, localized audio evidence is explicit, calibration metrics expose their inputs, and workflow transitions retain actor/time/outcome evidence.
-4. **Artifact immutability** — saved evaluations are not edited by review, adjudication, or calibration.
-5. **Portability** — UTF-8 JSON remains the interchange format; no database is required.
-6. **Interface independence** — CLI, browser workbench, calibration, and future batch tooling share the same domain models and engines.
-7. **Privacy by default** — source metadata may reference local media, but the workbench does not copy referenced media into evaluation history.
-8. **Local-first operation** — the browser workbench binds to loopback and does not require a remote service or CDN.
+1. **Human authority** — the core records and validates evaluator judgments rather than replacing them.
+2. **Reproducibility** — stored results identify the exact rubric id/version used.
+3. **Auditability** — scoring, agreement metrics, localized evidence, and workflow transitions are explicit.
+4. **Artifact immutability** — evaluation artifacts are not edited by review, adjudication, or calibration.
+5. **Portability** — UTF-8 JSON is the interchange format; no database is required.
+6. **Interface independence** — CLI and browser flows use the same domain engines.
+7. **Local-first operation** — the browser workbench binds to loopback and requires no remote service or CDN.
 
-## Layers
+## Package layers
 
 ### `models.py`
 
-Defines immutable evaluation-domain objects, including:
-
-- `EvaluationType`
-- `Preference`
-- `Rating`
-- `AudioAnnotation`
-- `AudioIssueCategory`
-- `AudioIssueSeverity`
-- `PairwiseJudgment`
-- `RubricCriterion`
-- `Rubric`
-- `EvaluationRecord`
-- `PairwiseEvaluationRecord`
-
-Intrinsic value validation belongs here: rating bounds, pairwise strength bounds, non-empty identifiers, positive criterion weights, unique criterion ids, non-negative audio timestamps, non-reversed intervals, non-empty annotation notes, and audio-only annotation use.
-
-A `Rubric` declares its `evaluation_type`. Scalar text/audio submissions use `EvaluationRecord`; pairwise A/B submissions use `PairwiseEvaluationRecord`, preventing silent conflation of scalar and categorical judgments.
+Defines immutable evaluation-domain objects: scalar ratings, pairwise judgments, timestamped audio evidence, rubrics, and evaluation records. Intrinsic bounds and structural validation live here.
 
 ### `rubrics.py`
 
-Contains built-in, versioned Turkish rubrics. A rubric version is persisted with the evaluation. Existing rubric semantics must not be changed in place after publication; semantic changes require a new version.
+Contains built-in versioned Turkish rubrics. A semantic rubric change requires a new rubric version rather than silently reinterpreting old records.
 
 ### `evaluation.py`
 
-Validates and deterministically aggregates scalar text/audio records. It rejects mismatched rubric data, cross-type use, and missing/unknown/duplicate ratings.
-
-Timestamped audio annotations are preserved in the result payload but do **not** enter the weighted-score formula. This keeps human ratings distinct from localized supporting evidence.
+Validates and scores scalar text/audio records deterministically. Timestamped audio annotations remain supporting evidence and do not automatically alter the 1–5 rubric aggregate.
 
 ### `pairwise.py`
 
-Validates and aggregates pairwise A/B records. Criterion choices map to directional values (`A = +1`, `Tie = 0`, `B = -1`) and are weighted into a signed `-100..+100` criterion-preference score. `overall_preference` and `preference_strength` remain separate human judgments.
+Validates A/Tie/B criterion judgments and computes the signed weighted `-100..+100` criterion-preference score. Human-authored overall preference and strength remain separate.
 
 ### `calibration.py`
 
-Compares two or more **independent evaluations of the same stimulus**. Calibration is deliberately downstream of the evaluation engines rather than a new scoring mode.
+Compares two or more independent evaluations of the same stimulus. It requires unique evaluator IDs plus matching task ID, evaluation type, rubric ID/version, and source stimulus. Each input is revalidated through the existing scalar or pairwise engine.
 
-Core input object:
+Reports expose scalar agreement, pairwise preference agreement, evaluator score spread, and — for timestamped audio evidence — deterministic category-aware annotation F1, severity agreement, and temporal similarity.
 
-- `EvaluatorSubmission` — one explicit evaluator id paired with one immutable scalar or pairwise record.
-
-Output objects include:
-
-- `CalibrationReport`
-- `CriterionAgreement`
-- `AudioAnnotationAgreement`
-- `AudioAnnotationPairAgreement`
-
-Before comparison, calibration requires:
-
-- at least two submissions;
-- unique non-empty evaluator ids;
-- identical `task_id`;
-- identical evaluation type;
-- identical rubric id/version;
-- identical `source` stimulus;
-- individually valid records under the supplied rubric.
-
-Calibration then reuses `evaluate_submission` or `evaluate_pairwise_submission` for authoritative validation/scoring. It does not reimplement the rubric engines.
-
-#### Scalar agreement
-
-For text/audio 1–5 ratings, every unique evaluator pair is compared for every criterion. The report exposes:
-
-- exact criterion agreement;
-- within-one-point agreement;
-- mean/max absolute rating differences;
-- per-criterion rating observations and agreement;
-- normalized score by evaluator;
-- aggregate-score spread.
-
-#### Pairwise agreement
-
-For A/Tie/B judgments, the report exposes:
-
-- criterion-preference agreement;
-- per-criterion preference observations;
-- overall-preference agreement;
-- mean/max preference-strength differences;
-- signed preference score by evaluator;
-- score spread.
-
-#### Audio annotation agreement
-
-For audio evaluations, calibration also compares timestamped issue evidence. Annotations can match only when their categories agree. Temporal eligibility depends on point/range geometry and a configurable tolerance.
-
-- point ↔ point: timestamp distance within tolerance;
-- point ↔ range: point lies inside, or near, the range;
-- range ↔ range: overlap uses intersection-over-union; nearby ranges may match within tolerance.
-
-Eligible candidates are matched one-to-one in descending temporal-similarity order. Pair reports expose matched count, annotation F1, exact severity agreement among matches, and temporal similarity. The aggregate exposes mean pairwise F1 and overall matched-evidence agreement.
-
-This is an explicit deterministic matching heuristic, not a claim of semantic truth. A future matching strategy that changes which candidates pair together is a calibration-semantic change and should be versioned/documented rather than silently substituted.
+Calibration is diagnostic. It does not determine which evaluator is correct, rank evaluators, or define a universal pass/fail threshold.
 
 ### `workflow.py`
 
-Defines evaluation lifecycle independently of scoring, calibration, and audio annotation semantics.
+Defines evaluation lifecycle independently of scoring and calibration:
 
 ```text
 created → draft → submitted → reviewed
@@ -120,191 +48,165 @@ created → draft → submitted → reviewed
                               └─ escalated → adjudicated
 ```
 
-The module enforces actor separation, required review/adjudication notes, contiguous event sequences, consistent transitions, and snapshot/event agreement. A workflow transition changes the workflow artifact only.
+Workflow transitions update only the workflow sidecar and retain the complete event chain.
 
 ### `serialization.py`
 
-Converts JSON-compatible data into scalar/pairwise evaluation records and workflow snapshots. For audio annotations it converts timestamps to integer milliseconds and category/severity strings through typed enums, then delegates intrinsic validation to the models.
+Owns JSON boundaries for evaluation and workflow records and delegates semantic validation back to typed models.
 
-Missing `audio_annotations` remains backward compatible and becomes an empty tuple.
+### `calibration_dashboard.py`
+
+Adapts local workbench history to the calibration core. It:
+
+1. discovers saved evaluation artifacts;
+2. reads evaluator identity from matching workflow sidecars;
+3. exposes compatibility metadata for browser grouping;
+4. invokes the existing calibration engine after server-side validation;
+5. writes a separate append-only calibration artifact;
+6. serves calibration history and JSON downloads.
+
+It does **not** implement a second agreement algorithm.
+
+A valid evaluation with a missing or malformed workflow sidecar remains visible in candidate history but is marked unavailable for calibration because evaluator attribution cannot be established safely.
 
 ### `cli.py`
 
-A thin adapter over the domain engines. Current commands include:
-
-- `rubrics` — list built-in rubric versions;
-- `evaluate` — validate/score one human-authored evaluation;
-- `calibrate` — compare two or more independent evaluations and optionally write a calibration report;
-- `workbench` — run the localhost browser evaluator UI.
-
-The CLI contains no alternative scoring or agreement rules.
+Thin adapter exposing `rubrics`, `evaluate`, `calibrate`, and `workbench`. It contains no alternative scoring or agreement semantics.
 
 ### `workbench.py`
 
-A localhost-only Flask adapter over evaluation and workflow cores. It reconstructs typed records, delegates validation/scoring, writes append-only history, and maintains workflow sidecars.
+Localhost Flask adapter for evaluation, review/adjudication, and the calibration dashboard. It delegates scoring/calibration to the same Python core used by the CLI.
 
-Calibration is currently **not** a workbench route/dashboard. The 0.5 calibration path is CLI/library based, keeping its read-only artifact boundary explicit before adding a larger UI surface.
+### `templates/` and `static/`
 
-### `static/workbench.js`
-
-Shared evaluator UI behavior for text, audio, pairwise, history, and review workflows.
-
-### `static/audio_annotations.js`
-
-Focused browser adapter for audio QA. It adds/removes localized issue rows, accepts readable timestamps, converts them to integer milliseconds, performs early UX validation, and adds `audio_annotations` to the audio submission payload. Python remains authoritative.
-
-### `static/audio_annotations.css`
-
-Responsive layout for the audio issue editor, including the 390px mobile flow covered by Chromium E2E.
+Browser presentation and interactions. The main workbench covers evaluation/review; `/calibration` covers evaluator comparison and calibration history. JavaScript performs UX grouping/rendering while Python remains authoritative for validation and metric calculation.
 
 ## Evaluation boundary
 
 ```text
-prompt / response / candidates / audio reference
-                    ↓
-           independent human judgment
-                    ↓
-       audio localized evidence*
-                    ↓
-      scalar or pairwise typed record
-                    ↓
-      validation + deterministic scoring
-                    ↓
-         immutable evaluation JSON
-
-* audio only; evidence does not automatically alter scores
+source stimulus
+      ↓
+independent human judgment
+      ↓
+typed scalar / pairwise record
+      ↓
+validation + deterministic scoring
+      ↓
+immutable evaluation JSON
 ```
+
+For audio, timestamped annotations are stored as localized evidence alongside the record but do not automatically change the score.
 
 ## Calibration boundary
 
 ```text
-immutable evaluation A + evaluator A id
-immutable evaluation B + evaluator B id
-          [optional C, D, ...]
+saved evaluation A + evaluator A id ─┐
+saved evaluation B + evaluator B id ─┼─ compatibility validation
+        optional C, D, ...            ┘
                     ↓
-      same task/type/rubric/source
-              validation
+          existing scoring engines
                     ↓
-      existing scoring engines
+            calibration engine
                     ↓
-   pairwise agreement observations
+       CalibrationReport snapshot
                     ↓
-      CalibrationReport JSON
+     append-only calibration history
 ```
 
-The calibration artifact is derived evidence. It never changes:
+Client-side grouping is a usability aid, not a correctness boundary. The server and core still reject incompatible task IDs, evaluation types, rubric versions, sources, or duplicate evaluator IDs.
 
-- source evaluations;
-- ratings or pairwise preferences;
-- audio annotations;
-- evaluator notes;
-- workflow sidecars.
-
-This separation lets teams rerun calibration with a different explicit timestamp tolerance while preserving the original judgments.
-
-## Audio annotation boundary
-
-```text
-referenced audio
-     │
-     ├── source metadata (reference only)
-     │
-     └── evaluator hears issue
-              ↓
-        start_ms / end_ms
-        category / severity
-        evidence note
-              ↓
-        AudioAnnotation
-              ↓
-     EvaluationRecord payload
-```
-
-The media itself remains outside the annotation object. `start_ms == end_ms` is a point marker; `end_ms > start_ms` is an interval; reversed intervals are invalid. Overlapping annotations are allowed because different issue types can apply to the same audible region.
-
-The core currently has no trusted media-duration object, so it cannot claim an annotation lies inside the actual asset duration.
+Calibration never changes source evaluations, ratings, pairwise preferences, annotations, evaluator notes, or workflow sidecars.
 
 ## Review boundary
 
 ```text
 immutable evaluation JSON
-           │ artifact_id
-           ↓
+           ↓ artifact_id
    workflow sidecar JSON
            ↓
-  typed workflow snapshot
+ typed workflow snapshot
            ↓
  state-machine transition
            ↓
- updated snapshot containing
- complete append-only event chain
+updated sidecar with full event chain
 ```
 
-Review records what happened to the evaluation process without altering what the evaluator originally submitted.
+Review records what happened to an evaluation without altering what the evaluator submitted.
 
-## Relationship between review and calibration
+## Review versus calibration
 
-Review/adjudication and calibration answer different questions:
+These layers answer different questions:
 
-- **review** — what did an independent reviewer decide about one saved evaluation?
-- **calibration** — how consistently did multiple independent evaluators judge the same stimulus?
+- **review** — what did an independent reviewer decide about one evaluation?
+- **calibration** — how consistently did multiple evaluators judge the same stimulus?
 
-A review acceptance is therefore not multi-evaluator agreement, and low agreement is not automatically a review failure. Any operational threshold must be defined by the organization using the toolkit, outside the core metric calculation.
+Review acceptance is not the same as multi-evaluator agreement, and low agreement is not automatically a review failure.
 
 ## Local storage
 
-Workbench-managed storage remains:
+Workbench-managed storage is:
 
 ```text
 <workspace>/
 ├── evaluations/
-│   ├── text-demo-001-<timestamp>.json
-│   ├── audio-demo-001-<timestamp>.json
-│   └── pairwise-demo-001-<timestamp>.json
-└── workflows/
-    └── <task>-<timestamp>.workflow.json
+│   └── <task>-<timestamp>.json
+├── workflows/
+│   └── <task>-<timestamp>.workflow.json
+└── calibrations/
+    └── <task>-<timestamp>.calibration.json
 ```
 
-Calibration specs and reports are user-selected CLI/library files in 0.5; they are not silently inserted into workbench history.
+Evaluation and calibration filenames are append-only timestamped artifacts. Workflow sidecars can advance state while retaining their full event chain.
 
-Evaluation filenames include task id and UTC timestamp and are append-only. Audio evidence lives in the saved evaluation payload; referenced media does not.
+A dashboard-generated calibration artifact stores its schema version, creation time, source evaluation filenames, local evaluator IDs, and the complete calibration report. Reopening calibration history reads this saved snapshot rather than silently recomputing it from later workspace state.
+
+## Failure isolation
+
+Artifact classes are validated independently:
+
+- malformed evaluations are omitted from calibration candidates;
+- valid evaluations with missing/corrupt workflow sidecars stay visible but are not calibration-ready;
+- malformed calibration artifacts are omitted from history summaries and rejected when opened directly.
+
+This prevents corruption in one metadata layer from silently rewriting another artifact class.
 
 ## Score semantics
 
 ### Scalar
 
-A scalar criterion is rated `1..5`. Aggregate scores are weighted means. Timestamped audio annotations are supporting evidence, not score inputs.
+Criterion ratings are `1..5`; aggregates are deterministic weighted means.
 
 ### Pairwise
 
-A pairwise criterion records `A`, `Tie`, or `B`. The signed aggregate reports weighted direction from `-100` to `+100` and does not override the human-authored overall preference or strength.
+Criterion judgments are `A`, `Tie`, or `B`; the signed aggregate reports weighted direction from `-100` to `+100` and does not override the human overall preference.
 
 ### Calibration
 
-Calibration scores are **agreement diagnostics** over already-authored evaluations. Exact agreement, within-one agreement, F1, severity agreement, temporal similarity, and aggregate-score spread do not identify which evaluator is correct and are not universal pass/fail measures.
+Exact agreement, within-one agreement, annotation F1, severity agreement, temporal similarity, and score spread are agreement diagnostics. They are not evaluator rankings or universal acceptance thresholds.
 
-The current alpha deliberately does not compute population-level reliability statistics such as Cohen/Fleiss kappa, Krippendorff's alpha, or ICC. Such metrics require explicit assumptions about scale type, missingness, repeated tasks, evaluator assignment, and sample size.
+The alpha does not yet compute population-level reliability statistics such as Cohen/Fleiss kappa, Krippendorff's alpha, or ICC because those require explicit assumptions about repeated tasks, assignment, scale type, missingness, and sample size.
 
-## Review semantics
+## Privacy boundary
 
-A `reviewed` workflow can be `accept` or `escalate`. Only escalated reviews can proceed to an independent adjudicator, who records `evaluation_upheld`, `review_concern_upheld`, or `inconclusive`. These labels describe workflow resolution, not new evaluation scores.
+The workbench binds to `127.0.0.1` by default. It performs no external LLM calls or telemetry and does not upload evaluation content, evaluator IDs, audio references, workflow events, or calibration reports.
 
-The current model has no in-place `request_changes` transition. Revision support needs a superseding-artifact relationship so earlier evidence is preserved.
+Local-first operation is not an access-control system; filesystem permissions and data-retention policy remain the operator's responsibility.
 
 ## Schema evolution
 
-Before stable `1.0` evaluation, calibration, and workflow interchange schemas are declared, JSON field names may evolve. Once stable schemas are published:
+Before stable `1.0` interchange schemas are declared, field names may evolve. Once stable schemas exist:
 
-- compatible additive fields may remain in the same major schema line;
-- required-field changes or semantic reinterpretation require a migration path;
+- additive compatible fields may stay in the same major schema line;
+- semantic reinterpretation requires a migration/version boundary;
 - rubric versions remain independent of package versions;
 - workflow schema evolution remains independent of rubric versions;
-- calibration matching/metric semantic changes must be documented/versioned;
-- old evaluation records must never be silently reinterpreted under a newer rubric;
-- old workflow events must never be silently rewritten as a different transition meaning.
+- calibration metric/matching changes must be documented and versioned;
+- old evaluation/workflow evidence must not be silently reinterpreted.
 
 ## Current limitations
 
-TurkishEvalKit currently does not open/decode media, verify real duration, generate waveforms, infer audio issues, convert annotation severity/count into automatic penalties, resolve evaluator disagreements automatically, declare acceptable calibration thresholds, or rank evaluators. Those boundaries keep media handling, score meaning, and human authority explicit.
+TurkishEvalKit does not currently decode media, verify media duration, generate waveforms, infer audio issues, convert annotation count/severity into automatic penalties, resolve evaluator disagreements automatically, declare acceptable agreement thresholds, rank evaluators, or provide in-place request-changes/resubmit semantics.
 
-See [`CALIBRATION.md`](CALIBRATION.md), [`AUDIO_ANNOTATIONS.md`](AUDIO_ANNOTATIONS.md), and [`REVIEW_WORKFLOW.md`](REVIEW_WORKFLOW.md) for the corresponding domain semantics.
+Revision support should use explicit superseding-artifact lineage so earlier evidence remains inspectable.
+
+See [`CALIBRATION.md`](CALIBRATION.md), [`CALIBRATION_DASHBOARD.md`](CALIBRATION_DASHBOARD.md), [`AUDIO_ANNOTATIONS.md`](AUDIO_ANNOTATIONS.md), and [`REVIEW_WORKFLOW.md`](REVIEW_WORKFLOW.md).

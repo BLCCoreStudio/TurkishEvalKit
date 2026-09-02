@@ -1,0 +1,372 @@
+.calibration-shell {
+  min-height: 100vh;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calibration-main {
+  width: min(1440px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 38px 0 72px;
+}
+
+.calibration-intro {
+  max-width: 900px;
+  margin-bottom: 28px;
+}
+
+.calibration-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.8fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.selection-card,
+.calibration-history-card,
+.report-panel {
+  padding: 24px;
+}
+
+.muted-copy {
+  color: var(--muted, #98a2b3);
+  line-height: 1.65;
+}
+
+.candidate-groups {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.candidate-group {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+
+.candidate-group-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.candidate-group-head strong,
+.history-item strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.candidate-group-meta,
+.history-meta,
+.candidate-meta {
+  color: var(--muted, #98a2b3);
+  font-size: 0.79rem;
+}
+
+.candidate-list {
+  display: grid;
+}
+
+.candidate-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.candidate-row:last-child {
+  border-bottom: 0;
+}
+
+.candidate-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.candidate-row.disabled {
+  opacity: 0.48;
+}
+
+.candidate-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.calibration-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: end;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tolerance-field {
+  max-width: 280px;
+  margin: 0;
+}
+
+.inline-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-input input {
+  max-width: 130px;
+}
+
+.inline-input span {
+  color: var(--muted, #98a2b3);
+}
+
+.submit-stack {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.calibration-history {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.history-item {
+  width: 100%;
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-item:hover,
+.history-item.active {
+  border-color: rgba(123, 143, 255, 0.55);
+  background: rgba(123, 143, 255, 0.08);
+}
+
+.history-statline {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+
+.history-statline span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.report-panel {
+  margin-top: 20px;
+}
+
+.report-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 22px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.metric-card span {
+  display: block;
+  color: var(--muted, #98a2b3);
+  font-size: 0.78rem;
+  margin-bottom: 7px;
+}
+
+.metric-card strong {
+  font-size: 1.45rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-section {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.compact-heading {
+  margin-bottom: 16px;
+}
+
+.aggregate-list {
+  display: grid;
+  gap: 10px;
+}
+
+.aggregate-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.35fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.aggregate-track {
+  height: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.aggregate-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.aggregate-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.agreement-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+.agreement-table th,
+.agreement-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: left;
+  vertical-align: top;
+}
+
+.agreement-table th {
+  color: var(--muted, #98a2b3);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.agreement-table td {
+  font-size: 0.9rem;
+}
+
+.observation-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.observation-chip {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.75rem;
+}
+
+.compact-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.diagnostic-note {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.25fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 28px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 193, 7, 0.18);
+  background: rgba(255, 193, 7, 0.045);
+}
+
+.diagnostic-note span {
+  color: var(--muted, #98a2b3);
+  line-height: 1.55;
+}
+
+.empty-state {
+  padding: 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  color: var(--muted, #98a2b3);
+}
+
+@media (max-width: 980px) {
+  .calibration-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .calibration-main {
+    width: min(100% - 24px, 1440px);
+    padding-top: 24px;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .calibration-actions,
+  .report-heading,
+  .candidate-group-head,
+  .diagnostic-note {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .submit-stack {
+    justify-items: stretch;
+  }
+
+  .metric-grid,
+  .compact-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .aggregate-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .aggregate-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

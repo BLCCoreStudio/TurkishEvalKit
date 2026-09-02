@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
 
+from .calibration_dashboard import create_calibration_blueprint
 from .evaluation import EvaluationResult, evaluate_submission
 from .models import PairwiseEvaluationRecord
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
@@ -249,6 +250,7 @@ def create_app(workspace: Path | None = None) -> Flask:
 
     resolved_workspace = (workspace or default_workspace()).expanduser().resolve()
     app = Flask(__name__)
+    app.register_blueprint(create_calibration_blueprint(resolved_workspace))
 
     @app.get("/")
     def index() -> str:
