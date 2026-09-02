@@ -6,12 +6,16 @@ state.loadingRevision = false;
 
 const baseSetTypeForRevision = setType;
 setType = function setTypeWithRevisionReset(type) {
-  if (state.revisionBase && !state.loadingRevision) {
+  const cancellingRevision = Boolean(state.revisionBase && !state.loadingRevision);
+  if (cancellingRevision) {
     state.revisionBase = null;
     state.revisionDetails = null;
-    byId("saveButton").textContent = "Validate & save evaluation";
   }
   baseSetTypeForRevision(type);
+  if (cancellingRevision) {
+    unlockRevisionIdentityFields();
+    byId("saveButton").textContent = "Validate & save evaluation";
+  }
 };
 
 const baseWorkflowStateLabelForRevision = workflowStateLabel;
