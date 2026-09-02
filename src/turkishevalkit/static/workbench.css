@@ -41,6 +41,10 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -378,10 +382,39 @@ textarea:focus {
   margin-top: 6px;
 }
 
-.two-column {
+.two-column,
+.candidate-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+
+.candidate {
+  min-width: 0;
+}
+
+.candidate textarea {
+  min-height: 220px;
+}
+
+.candidate-a > span::after,
+.candidate-b > span::after {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 2px 6px;
+  border: 1px solid #333b4d;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.candidate-a > span::after {
+  content: "A";
+}
+
+.candidate-b > span::after {
+  content: "B";
 }
 
 .criteria-list {
@@ -422,6 +455,11 @@ textarea:focus {
   gap: 5px;
 }
 
+.preference-group,
+.strength-group {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .score-group input {
   position: absolute;
   width: 1px;
@@ -447,6 +485,10 @@ textarea:focus {
   font-weight: 700;
 }
 
+.preference-group label {
+  min-width: 48px;
+}
+
 .score-group input:focus-visible + label {
   outline: 2px solid var(--accent-strong);
   outline-offset: 2px;
@@ -462,6 +504,42 @@ textarea:focus {
   margin: 0;
   padding: 9px 10px;
   font-size: 11px;
+}
+
+.pairwise-overall {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: end;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #30384a;
+  border-radius: 13px;
+  background: #10141c;
+}
+
+.overall-copy strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.overall-copy p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.overall-controls {
+  display: grid;
+  grid-template-columns: 180px 150px;
+  gap: 12px;
+}
+
+.overall-controls .field-label {
+  display: block;
+  margin-bottom: 7px;
 }
 
 .action-row {
@@ -508,10 +586,6 @@ textarea:focus {
   background: rgba(24, 53, 43, 0.18);
 }
 
-.result-card.hidden {
-  display: none;
-}
-
 .result-card h3 {
   margin: 6px 0 0;
   font-size: 26px;
@@ -540,6 +614,20 @@ textarea:focus {
   .criterion {
     grid-template-columns: 1fr;
   }
+
+  .pairwise-overall {
+    grid-template-columns: 1fr;
+  }
+
+  .overall-controls {
+    grid-template-columns: minmax(0, 180px) minmax(0, 150px);
+  }
+}
+
+@media (max-width: 720px) {
+  .candidate-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -556,7 +644,21 @@ textarea:focus {
     padding: 17px;
   }
 
-  .two-column {
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .type-switch {
+    width: 100%;
+  }
+
+  .type-button {
+    flex: 1;
+  }
+
+  .two-column,
+  .overall-controls {
     grid-template-columns: 1fr;
   }
 
