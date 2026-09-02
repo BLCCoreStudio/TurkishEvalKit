@@ -16,6 +16,10 @@ def _text_payload() -> dict[str, Any]:
     return json.loads(Path("examples/text-evaluation.json").read_text(encoding="utf-8"))
 
 
+def _pairwise_payload() -> dict[str, Any]:
+    return json.loads(Path("examples/pairwise-evaluation.json").read_text(encoding="utf-8"))
+
+
 def test_default_workspace_honors_xdg_data_home(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -33,11 +37,14 @@ def test_rubric_payload_exposes_task_family() -> None:
 
     assert by_id["tr-text-quality"]["evaluation_type"] == "text"
     assert by_id["tr-audio-quality"]["evaluation_type"] == "audio"
+    assert by_id["tr-pairwise-quality"]["evaluation_type"] == "pairwise"
     assert len(by_id["tr-text-quality"]["criteria"]) == 5
+    assert len(by_id["tr-pairwise-quality"]["criteria"]) == 5
 
 
 def test_history_storage_is_append_only_and_skips_invalid_files(tmp_path: Path) -> None:
     record = load_record(Path("examples/text-evaluation.json"))
+    assert not hasattr(record, "judgments")
     result = evaluate_submission(record, TEXT_QUALITY_RUBRIC)
 
     first = workbench.save_result(tmp_path, result)
@@ -56,6 +63,7 @@ def test_history_storage_is_append_only_and_skips_invalid_files(tmp_path: Path) 
     assert history[0]["task_id"] == "text-demo-001"
     assert history[0]["evaluation_type"] == "text"
     assert history[0]["normalized_score"] == 95.0
+    assert history[0]["preference_score"] is None
 
 
 def test_history_is_empty_before_workspace_is_created(tmp_path: Path) -> None:
@@ -70,12 +78,13 @@ def test_workbench_routes_validate_save_list_and_export(tmp_path: Path) -> None:
     index = client.get("/")
     assert index.status_code == 200
     assert b"TurkishEvalKit" in index.data
+    assert b"Pairwise" in index.data
 
     config = client.get("/api/config")
     assert config.status_code == 200
     config_payload = config.get_json()
     assert config_payload["workspace"] == str(tmp_path.resolve())
-    assert len(config_payload["rubrics"]) == 2
+    assert len(config_payload["rubrics"]) == 3
 
     empty_history = client.get("/api/history")
     assert empty_history.get_json() == {"items": []}
@@ -106,14 +115,34 @@ def test_workbench_routes_validate_save_list_and_export(tmp_path: Path) -> None:
     assert body["result"]["task_id"] == "text-demo-001"
     assert body["result"]["normalized_score"] == 95.0
 
+    pairwise_saved = client.post("/api/evaluations", json=_pairwise_payload())
+    assert pairwise_saved.status_code == 201
+    pairwise_body = pairwise_saved.get_json()
+    assert pairwise_body["result"]["task_id"] == "pairwise-demo-001"
+    assert pairwise_body["result"]["overall_preference"] == "a"
+    assert pairwise_body["result"]["preference_score"] == 40.0
+    assert pairwise_body["result"]["preference_counts"] == {"a": 3, "b": 1, "tie": 1}
+
     history = client.get("/api/history").get_json()["items"]
-    assert len(history) == 1
-    assert history[0]["filename"] == body["filename"]
+    assert len(history) == 2
+    by_task = {item["task_id"]: item for item in history}
+    assert by_task["text-demo-001"]["filename"] == body["filename"]
+    assert by_task["pairwise-demo-001"]["filename"] == pairwise_body["filename"]
+    assert by_task["pairwise-demo-001"]["evaluation_type"] == "pairwise"
+    assert by_task["pairwise-demo-001"]["overall_preference"] == "a"
+    assert by_task["pairwise-demo-001"]["preference_score"] == 40.0
 
     download = client.get(f"/api/history/{body['filename']}")
     assert download.status_code == 200
     exported = json.loads(download.data)
     assert exported["task_id"] == "text-demo-001"
+
+    pairwise_download = client.get(f"/api/history/{pairwise_body['filename']}")
+    assert pairwise_download.status_code == 200
+    pairwise_exported = json.loads(pairwise_download.data)
+    assert pairwise_exported["task_id"] == "pairwise-demo-001"
+    assert pairwise_exported["payload"]["source"]["response_a"]
+    assert pairwise_exported["payload"]["source"]["response_b"]
 
     assert client.get("/api/history/missing.json").status_code == 404
     assert client.get("/api/history/not-json.txt").status_code == 404
