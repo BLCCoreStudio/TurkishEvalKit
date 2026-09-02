@@ -40,6 +40,25 @@ def _pairwise_outcome(result: PairwiseEvaluationResult) -> str:
     return f"{result.overall_preference.value.upper()} preferred"
 
 
+def _add_local_app_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        help="Local directory for append-only evaluation history.",
+    )
+    parser.add_argument(
+        "--port",
+        type=_port,
+        default=8765,
+        help="Local TCP port (default: 8765).",
+    )
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Do not open the local browser interface automatically.",
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="turkisheval",
@@ -95,22 +114,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "workbench",
         help="Run the localhost-only browser evaluation workbench.",
     )
-    workbench_parser.add_argument(
-        "--workspace",
-        type=Path,
-        help="Local directory for append-only evaluation history.",
+    _add_local_app_arguments(workbench_parser)
+
+    queue_parser = subparsers.add_parser(
+        "queue",
+        help="Run the combined workbench and open the action-oriented review queue.",
     )
-    workbench_parser.add_argument(
-        "--port",
-        type=_port,
-        default=8765,
-        help="Local TCP port (default: 8765).",
-    )
-    workbench_parser.add_argument(
-        "--no-browser",
-        action="store_true",
-        help="Do not open the workbench in the default browser automatically.",
-    )
+    _add_local_app_arguments(queue_parser)
     return parser
 
 
@@ -212,6 +222,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .workbench import run_workbench
 
             run_workbench(
+                workspace=args.workspace,
+                port=args.port,
+                open_browser=not args.no_browser,
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            parser.exit(2, f"error: {exc}\n")
+        return 0
+
+    if args.command == "queue":
+        try:
+            from .review_queue_app import run_review_queue
+
+            run_review_queue(
                 workspace=args.workspace,
                 port=args.port,
                 open_browser=not args.no_browser,
