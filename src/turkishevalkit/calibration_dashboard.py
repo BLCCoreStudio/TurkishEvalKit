@@ -111,9 +111,13 @@ def list_calibration_candidates(workspace: Path) -> list[dict[str, Any]]:
             if not isinstance(raw_record, dict):
                 continue
             record = record_from_dict(raw_record)
-            evaluator_id = _load_evaluator_id(workspace, path.name)
         except (OSError, TypeError, ValueError):
             continue
+
+        try:
+            evaluator_id = _load_evaluator_id(workspace, path.name)
+        except (OSError, TypeError, ValueError):
+            evaluator_id = None
 
         items.append(
             {
