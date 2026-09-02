@@ -23,6 +23,49 @@ class Preference(StrEnum):
     TIE = "tie"
 
 
+class AudioIssueCategory(StrEnum):
+    """Localized issue categories for timestamped audio-quality evidence."""
+
+    NATIVENESS = "nativeness"
+    PRONUNCIATION = "pronunciation"
+    FLUENCY = "fluency"
+    INTONATION = "intonation"
+    UNNATURAL_PAUSE = "unnatural_pause"
+    PACE = "pace"
+    EMPHASIS = "emphasis"
+    AUDIO_ARTIFACT = "audio_artifact"
+    NOISE = "noise"
+    CLIPPING = "clipping"
+    OTHER = "other"
+
+
+class AudioIssueSeverity(StrEnum):
+    """Human-authored impact level for one localized audio issue."""
+
+    MINOR = "minor"
+    MAJOR = "major"
+    CRITICAL = "critical"
+
+
+@dataclass(frozen=True, slots=True)
+class AudioAnnotation:
+    """One timestamped human observation tied to an audio evaluation."""
+
+    start_ms: int
+    end_ms: int
+    category: AudioIssueCategory
+    severity: AudioIssueSeverity
+    note: str
+
+    def __post_init__(self) -> None:
+        if self.start_ms < 0 or self.end_ms < 0:
+            raise ValueError("audio annotation timestamps must be non-negative")
+        if self.end_ms < self.start_ms:
+            raise ValueError("audio annotation end_ms must be greater than or equal to start_ms")
+        if not self.note.strip():
+            raise ValueError("audio annotation note must not be empty")
+
+
 @dataclass(frozen=True, slots=True)
 class Rating:
     """A bounded numeric rating for one rubric criterion."""
@@ -98,6 +141,7 @@ class EvaluationRecord:
     rubric_id: str
     rubric_version: str
     ratings: tuple[Rating, ...]
+    audio_annotations: tuple[AudioAnnotation, ...] = ()
     evaluator_note: str = ""
     justification_en: str = ""
     source: dict[str, Any] = field(default_factory=dict)
@@ -112,6 +156,10 @@ class EvaluationRecord:
             raise ValueError("rubric id and version must not be empty")
         if not self.ratings:
             raise ValueError("evaluation must contain at least one rating")
+        if self.audio_annotations and self.evaluation_type is not EvaluationType.AUDIO:
+            raise ValueError("audio_annotations are only valid for audio evaluations")
+        if len(set(self.audio_annotations)) != len(self.audio_annotations):
+            raise ValueError("audio annotations must not contain exact duplicates")
 
 
 @dataclass(frozen=True, slots=True)
