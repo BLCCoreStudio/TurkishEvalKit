@@ -125,11 +125,39 @@
           </div>
         </section>
 
-        <section id="audioAgreementSection" class="report-section hidden">
+        <section id="disagreementExplorerSection" class="report-section hidden">
           <div class="section-heading compact-heading">
             <div>
               <span class="step">04</span>
-              <h3>Timestamped audio evidence</h3>
+              <h3>Disagreement explorer</h3>
+            </div>
+          </div>
+          <p class="muted-copy explorer-intro">
+            Drill into the exact evaluator observations and human evidence behind disagreement.
+            Hotspots are ordered by the number of differing evaluator pairs, not by evaluator quality.
+          </p>
+          <div id="disagreementStatus" class="message explorer-status" role="status" aria-live="polite"></div>
+          <div id="disagreementSummary" class="metric-grid compact-metrics explorer-metrics"></div>
+          <div id="disputedCriteria" class="disagreement-list"></div>
+
+          <div id="overallPreferenceDifferences" class="explorer-subsection hidden">
+            <h4>Holistic pairwise differences</h4>
+            <p class="muted-copy">Overall preference and preference strength remain separate from criterion-level evidence.</p>
+            <div id="overallPreferenceRows" class="difference-list"></div>
+          </div>
+
+          <div id="audioEvidenceDifferences" class="explorer-subsection hidden">
+            <h4>Timestamped evidence differences</h4>
+            <p class="muted-copy">Shows unmatched annotations plus matched annotations that differ in timing or severity.</p>
+            <div id="audioEvidencePairs" class="difference-list"></div>
+          </div>
+        </section>
+
+        <section id="audioAgreementSection" class="report-section hidden">
+          <div class="section-heading compact-heading">
+            <div>
+              <span class="step">05</span>
+              <h3>Timestamped audio agreement</h3>
             </div>
           </div>
           <div id="audioSummary" class="metric-grid compact-metrics"></div>
