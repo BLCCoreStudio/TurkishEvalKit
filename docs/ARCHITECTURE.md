@@ -1,22 +1,23 @@
 # Architecture
 
-TurkishEvalKit is intentionally split so human judgment remains a domain input rather than an implementation detail hidden inside a UI or model call.
+TurkishEvalKit is intentionally split so human judgment remains a domain input rather than an implementation detail hidden inside a UI or model call. Review metadata is also kept outside the scored evaluation artifact so later decisions cannot silently rewrite historical evidence.
 
 ## Design goals
 
 1. **Human authority** — the core records and validates evaluator judgments; it does not silently replace them.
 2. **Reproducibility** — a stored result identifies the exact rubric id and version used to compute it.
-3. **Auditability** — scoring is deterministic and small enough to inspect directly.
-4. **Portability** — UTF-8 JSON remains the interchange format; no database is required.
-5. **Interface independence** — CLI, browser workbench, and future batch tooling use the same domain models and scoring engines.
-6. **Privacy by default** — source metadata may reference local media, but the workbench does not copy referenced media into evaluation history.
-7. **Local-first operation** — the browser workbench binds to loopback and does not require a remote service or CDN.
+3. **Auditability** — scoring is deterministic, and workflow transitions retain actor/time/outcome evidence.
+4. **Artifact immutability** — once saved, an evaluation artifact is not edited by review or adjudication.
+5. **Portability** — UTF-8 JSON remains the interchange format; no database is required.
+6. **Interface independence** — CLI, browser workbench, and future batch tooling use the same domain models and engines.
+7. **Privacy by default** — source metadata may reference local media, but the workbench does not copy referenced media into evaluation history.
+8. **Local-first operation** — the browser workbench binds to loopback and does not require a remote service or CDN.
 
 ## Layers
 
 ### `models.py`
 
-Defines the immutable domain objects:
+Defines immutable evaluation-domain objects:
 
 - `EvaluationType`
 - `Preference`
@@ -53,54 +54,121 @@ Performs cross-object validation and deterministic aggregation for pairwise A/B 
 
 Criterion choices are mapped to directional values (`A = +1`, `Tie = 0`, `B = -1`) and weighted into a signed `-100..+100` preference score. The separately authored `overall_preference` and `preference_strength` remain intact and are not replaced by this aggregate.
 
+### `workflow.py`
+
+Defines the evaluation-lifecycle state machine independently of scoring.
+
+Core types include:
+
+- `EvaluationSession`
+- `EvaluationWorkflow`
+- `WorkflowEvent`
+- `WorkflowState`
+- `WorkflowEventKind`
+- `ActorRole`
+- `ReviewOutcome`
+- `AdjudicationOutcome`
+
+The supported lifecycle is:
+
+```text
+created → draft → submitted → reviewed
+                              ├─ accepted: terminal
+                              └─ escalated → adjudicated
+```
+
+The module enforces:
+
+- only the session evaluator may submit a draft;
+- the reviewer must differ from the evaluator;
+- escalated review requires an explanatory note;
+- only escalated reviews may be adjudicated;
+- the adjudicator must differ from both evaluator and reviewer;
+- adjudication requires a resolution note;
+- event sequence numbers are contiguous;
+- every event's `from_state` matches the prior event's `to_state`;
+- the workflow snapshot state matches the final event.
+
+A workflow transition changes the workflow artifact only. It never mutates evaluation ratings, judgments, source content, or evaluator evidence.
+
 ### `serialization.py`
 
-Converts JSON-compatible data into the correct scalar or pairwise domain object and writes scored results. Serialization is separate from scoring so storage and interfaces can evolve without changing evaluation semantics.
+Converts JSON-compatible data into scalar/pairwise evaluation records and workflow snapshots. It also reconstructs workflow event chains through the same domain validators, so malformed persisted state cannot bypass the state-machine invariants merely because it came from disk.
 
 ### `cli.py`
 
-A thin command adapter around the core. It exposes rubric listing, file-based scalar/pairwise evaluation, and the local workbench launcher. Business rules must not exist only in the CLI.
+A thin command adapter around the evaluation core. It exposes rubric listing, file-based scalar/pairwise evaluation, and the local workbench launcher. Business rules must not exist only in the CLI.
 
 ### `workbench.py`
 
-A local-only adapter over the same core. It is responsible for:
+A local-only adapter over the evaluation and workflow cores. It is responsible for:
 
 - creating the browser application;
-- exposing built-in rubrics to the frontend;
-- converting submitted JSON into the appropriate typed record;
-- delegating validation and scoring to the scalar or pairwise core;
-- writing append-only scored history;
+- exposing built-in rubrics and workflow option metadata to the frontend;
+- converting submitted JSON into the appropriate typed evaluation record;
+- delegating validation and scoring to the scalar or pairwise engine;
+- writing append-only scored evaluation history;
+- creating optional evaluator-session workflow sidecars;
+- loading and atomically persisting workflow snapshots;
+- delegating submit/review/adjudicate transitions to `workflow.py`;
 - listing and exporting saved result files.
 
-It must not duplicate rubric or scoring rules.
+It must not duplicate rubric, scoring, or workflow-transition rules.
 
 ### `templates/` and `static/`
 
-Contain the offline browser UI. The frontend does not use a CDN and does not calculate authoritative scores. It collects evaluator input, calls the local API, and renders the validated result.
+Contain the offline browser UI. The frontend does not use a CDN, does not calculate authoritative scores, and does not decide whether workflow transitions are valid. It collects human input, calls the local API, and renders validated responses.
 
-## Workbench boundary
+## Evaluation boundary
 
 ```text
 prompt / response / candidates / audio reference
                     ↓
-             browser workbench
-                    ↓
-               local JSON API
+             browser or JSON input
                     ↓
       scalar or pairwise typed record
                     ↓
       validation + deterministic scoring
                     ↓
-      append-only history / JSON export
+         immutable evaluation JSON
 ```
 
-The server binds to `127.0.0.1` by design. Network exposure is not an option in the current CLI because the workbench is intended as a local evaluator tool, not a multi-user web service.
+## Review boundary
+
+```text
+immutable evaluation JSON
+           │ artifact_id
+           ↓
+   workflow sidecar JSON
+           ↓
+  typed workflow snapshot
+           ↓
+ state-machine transition
+           ↓
+ updated snapshot containing
+ complete append-only event chain
+```
+
+The workflow sidecar refers to the evaluation by its saved artifact filename. Review therefore records what happened *to the evaluation process* without altering what the evaluator originally submitted.
 
 ## Local storage
 
-The workbench writes one scored JSON file per successful evaluation. Filenames include the task id and a UTC timestamp so existing records are not overwritten.
+The workbench separates scored evidence and lifecycle evidence:
 
-This append-only behavior is intentional. Editing, superseding, review states, or schema migrations should be represented explicitly in future versions rather than silently rewriting historical evidence.
+```text
+<workspace>/
+├── evaluations/
+│   ├── text-demo-001-<timestamp>.json
+│   └── pairwise-demo-001-<timestamp>.json
+└── workflows/
+    └── text-demo-001-<timestamp>.workflow.json
+```
+
+Evaluation filenames include the task id and UTC timestamp and are append-only. Re-evaluating the same task creates a new artifact instead of overwriting an earlier judgment.
+
+Workflow sidecars are snapshots and therefore are atomically replaced as the lifecycle advances. This replacement is not loss of audit history: every prior transition remains inside the `events` tuple. The state snapshot and event chain are validated together whenever the sidecar is loaded.
+
+A missing or corrupt workflow sidecar must not cause the underlying evaluation artifact to disappear from history. Workflow metadata is supplementary lifecycle evidence, not ownership of the evaluation itself.
 
 ## Score semantics
 
@@ -114,14 +182,33 @@ A pairwise criterion records `A`, `Tie`, or `B`. The signed aggregate reports th
 
 A future rubric may assign unequal positive weights, but weight changes are semantic changes and therefore require a new rubric version.
 
+## Review semantics
+
+A `reviewed` workflow can have one of two reviewer dispositions:
+
+- `accept` — review is complete; no adjudication is required;
+- `escalate` — reviewer disagreement is explicitly recorded and may continue to adjudication.
+
+An adjudicator resolves an escalation with one of:
+
+- `evaluation_upheld`;
+- `review_concern_upheld`;
+- `inconclusive`.
+
+These labels describe workflow resolution. They are not new evaluation scores.
+
+The current model deliberately has no `request_changes` transition. Supporting revisions correctly requires a superseding-artifact relationship so a revised evaluator submission does not erase the earlier artifact. That model should be designed explicitly rather than introducing in-place edits.
+
 ## Schema evolution
 
-Before a stable `1.0` interchange schema is declared, JSON field names may evolve. Once a stable schema is published:
+Before stable `1.0` evaluation and workflow interchange schemas are declared, JSON field names may evolve. Once stable schemas are published:
 
 - compatible additive fields may remain in the same major schema line;
 - required-field changes or semantic reinterpretation require a migration path;
 - rubric versions remain independent of application/package versions;
-- old records must never be silently reinterpreted under a newer rubric.
+- workflow schema evolution remains independent of rubric versions;
+- old evaluation records must never be silently reinterpreted under a newer rubric;
+- old workflow events must never be silently rewritten as a different transition meaning.
 
 ## Pairwise evaluation
 
