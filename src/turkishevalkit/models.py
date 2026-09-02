@@ -12,6 +12,15 @@ class EvaluationType(StrEnum):
 
     TEXT = "text"
     AUDIO = "audio"
+    PAIRWISE = "pairwise"
+
+
+class Preference(StrEnum):
+    """Pairwise preference labels for candidate A, candidate B, or a tie."""
+
+    A = "a"
+    B = "b"
+    TIE = "tie"
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +36,19 @@ class Rating:
             raise ValueError("criterion_id must not be empty")
         if not 1 <= self.score <= 5:
             raise ValueError("score must be between 1 and 5")
+
+
+@dataclass(frozen=True, slots=True)
+class PairwiseJudgment:
+    """A preference judgment for one rubric criterion."""
+
+    criterion_id: str
+    preference: Preference
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.criterion_id.strip():
+            raise ValueError("criterion_id must not be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +91,7 @@ class Rubric:
 
 @dataclass(frozen=True, slots=True)
 class EvaluationRecord:
-    """A complete human-authored evaluation submission."""
+    """A complete human-authored scalar evaluation submission."""
 
     task_id: str
     evaluation_type: EvaluationType
@@ -84,7 +106,36 @@ class EvaluationRecord:
     def __post_init__(self) -> None:
         if not self.task_id.strip():
             raise ValueError("task_id must not be empty")
+        if self.evaluation_type is EvaluationType.PAIRWISE:
+            raise ValueError("pairwise submissions must use PairwiseEvaluationRecord")
         if not self.rubric_id.strip() or not self.rubric_version.strip():
             raise ValueError("rubric id and version must not be empty")
         if not self.ratings:
             raise ValueError("evaluation must contain at least one rating")
+
+
+@dataclass(frozen=True, slots=True)
+class PairwiseEvaluationRecord:
+    """A complete A/B human-preference evaluation submission."""
+
+    task_id: str
+    rubric_id: str
+    rubric_version: str
+    judgments: tuple[PairwiseJudgment, ...]
+    overall_preference: Preference
+    preference_strength: int
+    evaluator_note: str = ""
+    justification_en: str = ""
+    source: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    evaluation_type: EvaluationType = field(default=EvaluationType.PAIRWISE, init=False)
+
+    def __post_init__(self) -> None:
+        if not self.task_id.strip():
+            raise ValueError("task_id must not be empty")
+        if not self.rubric_id.strip() or not self.rubric_version.strip():
+            raise ValueError("rubric id and version must not be empty")
+        if not self.judgments:
+            raise ValueError("pairwise evaluation must contain at least one judgment")
+        if not 1 <= self.preference_strength <= 3:
+            raise ValueError("preference_strength must be between 1 and 3")

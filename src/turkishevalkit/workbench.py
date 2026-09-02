@@ -10,9 +10,11 @@ import threading
 import webbrowser
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from .evaluation import EvaluationResult, evaluate_submission
+from .models import PairwiseEvaluationRecord
+from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .rubrics import BUILTIN_RUBRICS
 from .serialization import record_from_dict, result_to_dict
 
@@ -20,6 +22,7 @@ if TYPE_CHECKING:
     from flask import Flask
 
 _FILENAME_SAFE = re.compile(r"[^\w.-]+", flags=re.UNICODE)
+SavedResult: TypeAlias = EvaluationResult | PairwiseEvaluationResult
 
 
 def default_workspace() -> Path:
@@ -68,7 +71,7 @@ def _safe_task_id(task_id: str) -> str:
     return (cleaned or "evaluation")[:80]
 
 
-def save_result(workspace: Path, result: EvaluationResult) -> Path:
+def save_result(workspace: Path, result: SavedResult) -> Path:
     """Persist a scored result using an append-only filename."""
 
     directory = _evaluation_dir(workspace)
@@ -111,6 +114,9 @@ def list_history(workspace: Path) -> list[dict[str, Any]]:
                 "rubric_version": str(payload.get("rubric_version", "")),
                 "weighted_score": payload.get("weighted_score"),
                 "normalized_score": payload.get("normalized_score"),
+                "preference_score": payload.get("preference_score"),
+                "overall_preference": payload.get("overall_preference"),
+                "preference_strength": payload.get("preference_strength"),
                 "saved_at": saved_at,
             }
         )
@@ -159,7 +165,10 @@ def create_app(workspace: Path | None = None) -> Flask:
             rubric = BUILTIN_RUBRICS.get(record.rubric_id)
             if rubric is None:
                 raise ValueError(f"unknown rubric: {record.rubric_id}")
-            result = evaluate_submission(record, rubric)
+            if isinstance(record, PairwiseEvaluationRecord):
+                result: SavedResult = evaluate_pairwise_submission(record, rubric)
+            else:
+                result = evaluate_submission(record, rubric)
             destination = save_result(resolved_workspace, result)
         except (OSError, TypeError, ValueError) as exc:
             return jsonify({"error": str(exc)}), 400

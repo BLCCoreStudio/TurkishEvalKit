@@ -1,4 +1,4 @@
-"""Built-in Turkish text and audio quality rubrics."""
+"""Built-in Turkish text, audio, and pairwise quality rubrics."""
 
 from .models import EvaluationType, Rubric, RubricCriterion
 
@@ -75,7 +75,16 @@ AUDIO_QUALITY_RUBRIC = Rubric(
     ),
 )
 
+PAIRWISE_QUALITY_RUBRIC = Rubric(
+    id="tr-pairwise-quality",
+    version="1.0",
+    title="Turkish AI Pairwise Preference",
+    evaluation_type=EvaluationType.PAIRWISE,
+    criteria=TEXT_QUALITY_RUBRIC.criteria,
+)
+
 BUILTIN_RUBRICS = {
     TEXT_QUALITY_RUBRIC.id: TEXT_QUALITY_RUBRIC,
     AUDIO_QUALITY_RUBRIC.id: AUDIO_QUALITY_RUBRIC,
+    PAIRWISE_QUALITY_RUBRIC.id: PAIRWISE_QUALITY_RUBRIC,
 }

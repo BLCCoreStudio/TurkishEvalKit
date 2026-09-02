@@ -13,6 +13,7 @@ def test_rubrics_command_lists_builtins(capsys: pytest.CaptureFixture[str]) -> N
     output = capsys.readouterr().out
     assert "tr-text-quality@1.0" in output
     assert "tr-audio-quality@1.0" in output
+    assert "tr-pairwise-quality@1.0" in output
 
 
 def test_evaluate_command_emits_json(capsys: pytest.CaptureFixture[str]) -> None:
@@ -20,6 +21,22 @@ def test_evaluate_command_emits_json(capsys: pytest.CaptureFixture[str]) -> None
     payload = json.loads(capsys.readouterr().out)
     assert payload["task_id"] == "text-demo-001"
     assert payload["normalized_score"] == 95.0
+
+
+def test_pairwise_evaluate_command_emits_json(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["evaluate", "examples/pairwise-evaluation.json", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["task_id"] == "pairwise-demo-001"
+    assert payload["overall_preference"] == "a"
+    assert payload["preference_score"] == 40.0
+
+
+def test_pairwise_evaluate_command_has_human_summary(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["evaluate", "examples/pairwise-evaluation.json"]) == 0
+    output = capsys.readouterr().out
+    assert "A preferred" in output
+    assert "+40.00/100" in output
+    assert "strength 2/3" in output
 
 
 def test_evaluate_command_can_write_output(tmp_path: Path) -> None:

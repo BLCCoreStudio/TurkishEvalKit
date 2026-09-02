@@ -4,11 +4,11 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Human-in-the-loop evaluation toolkit and local workbench for Turkish AI text and audio quality.**
+**Human-in-the-loop evaluation toolkit and local workbench for Turkish AI text, audio, and pairwise A/B quality.**
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into auditable evaluation artifacts. The project is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending that an automated heuristic can replace human judgment.
 
-> **Status:** alpha. The current release line supports Turkish text and audio-quality evaluations, deterministic rubric validation/scoring, JSON import/export, a CLI, and an optional localhost-only browser workbench with append-only local history.
+> **Status:** alpha. The current release line supports Turkish text and audio-quality ratings, pairwise A/B preference evaluation, deterministic rubric validation/scoring, JSON import/export, a CLI, and an optional localhost-only browser workbench with append-only local history.
 
 ## Why this exists
 
@@ -18,8 +18,8 @@ The project deliberately separates:
 
 - **judgment** — authored by a human evaluator;
 - **rubric structure** — explicit, typed, and versioned;
-- **validation** — deterministic checks for task type, missing, duplicate, or unknown ratings;
-- **aggregation** — reproducible score calculation;
+- **validation** — deterministic checks for task type, completeness, duplicates, and unknown criteria;
+- **aggregation** — reproducible scalar or pairwise score calculation;
 - **evidence** — criterion notes, evaluator notes, English justification, source metadata, and exports;
 - **interfaces** — CLI and local workbench are adapters over the same core.
 
@@ -27,28 +27,30 @@ The project deliberately separates:
 
 - Turkish text-quality rubric covering fluency, instruction following, factuality, helpfulness, and locale fit.
 - Turkish audio-quality rubric covering nativeness, pronunciation, fluency, intonation, and synthesis/audio artifacts.
-- Rubrics explicitly bound to their evaluation type; text/audio mismatches are rejected by the core.
-- Strict 1–5 criterion ratings with complete-rubric validation.
+- Turkish pairwise A/B rubric with criterion-level **A / Tie / B** judgments.
+- Separate pairwise **overall preference** and **preference strength (1–3)** fields.
+- Deterministic pairwise criterion aggregate from `-100` (all B) through `0` (balanced) to `+100` (all A).
+- Rubrics explicitly bound to their evaluation type; cross-type mismatches are rejected by the core.
+- Strict 1–5 criterion ratings for scalar text/audio tasks with complete-rubric validation.
 - Versioned rubric identifiers stored with every evaluation record.
-- Deterministic weighted and normalized scoring.
 - UTF-8 JSON input/output with Turkish text preserved.
 - Human evaluator notes plus optional English justification.
 - CLI workflows for listing rubrics and scoring validated records.
 - Optional browser workbench bound to `127.0.0.1` only.
 - Append-only local evaluation history with JSON export.
 - No CDN or external service requirement for the workbench UI.
-- Example text/audio evaluation records.
-- Python 3.11–3.13 CI with Ruff, strict mypy, pytest, coverage, and CLI smoke tests.
+- Example text, audio, and pairwise evaluation records.
+- Python 3.11–3.13 CI with Ruff, strict mypy, pytest, coverage, CLI smoke, real HTTP, and Chromium browser tests.
 
 ## Non-goals
 
 TurkishEvalKit does **not** currently:
 
-- automatically decide whether an answer or voice sample is good;
+- automatically decide whether an answer, voice sample, or candidate response is good;
 - send evaluation content to an external AI service;
 - claim that aggregate scores are objective ground truth;
 - copy referenced private audio into evaluation history;
-- provide pairwise A/B evaluation before that workflow has a dedicated typed model and tests.
+- provide multi-evaluator consensus or adjudication as if evaluator disagreement did not exist.
 
 These boundaries are intentional.
 
@@ -76,10 +78,16 @@ Evaluate the included Turkish text example:
 turkisheval evaluate examples/text-evaluation.json
 ```
 
+Evaluate the pairwise A/B example:
+
+```bash
+turkisheval evaluate examples/pairwise-evaluation.json
+```
+
 Emit the complete scored result as JSON:
 
 ```bash
-turkisheval evaluate examples/text-evaluation.json --json
+turkisheval evaluate examples/pairwise-evaluation.json --json
 ```
 
 Write a scored artifact:
@@ -116,11 +124,11 @@ Run without opening a browser:
 turkisheval workbench --no-browser
 ```
 
-See [`docs/WORKBENCH.md`](docs/WORKBENCH.md) for storage, privacy, and workflow details.
+The workbench exposes **Text**, **Audio**, and **Pairwise** modes. See [`docs/WORKBENCH.md`](docs/WORKBENCH.md) for storage, privacy, and workflow details.
 
-## Evaluation record
+## Evaluation records
 
-A record contains the task identity, evaluation type, exact rubric version, source material/metadata, one rating per rubric criterion, and human-authored notes.
+Scalar text/audio records contain the task identity, evaluation type, exact rubric version, source material/metadata, one 1–5 rating per rubric criterion, and human-authored notes.
 
 ```json
 {
@@ -142,9 +150,36 @@ A record contains the task identity, evaluation type, exact rubric version, sour
 }
 ```
 
-A real record must include **every** criterion required by its rubric exactly once. See [`examples/text-evaluation.json`](examples/text-evaluation.json) and [`examples/audio-evaluation.json`](examples/audio-evaluation.json) for complete records.
+Pairwise records use criterion judgments instead of scalar ratings and preserve the holistic decision separately:
+
+```json
+{
+  "task_id": "pairwise-demo-001",
+  "evaluation_type": "pairwise",
+  "rubric_id": "tr-pairwise-quality",
+  "rubric_version": "1.0",
+  "judgments": [
+    {
+      "criterion_id": "fluency",
+      "preference": "a",
+      "note": "A daha doğal ve akıcı."
+    }
+  ],
+  "overall_preference": "a",
+  "preference_strength": 2,
+  "source": {
+    "prompt": "...",
+    "response_a": "...",
+    "response_b": "..."
+  }
+}
+```
+
+A real record must include **every** criterion required by its rubric exactly once. See [`examples/text-evaluation.json`](examples/text-evaluation.json), [`examples/audio-evaluation.json`](examples/audio-evaluation.json), and [`examples/pairwise-evaluation.json`](examples/pairwise-evaluation.json) for complete records.
 
 ## Scoring model
+
+### Scalar text/audio
 
 Criterion scores are bounded to `1..5`. For a rubric with weights `wᵢ` and human ratings `rᵢ`:
 
@@ -153,7 +188,23 @@ weighted_score = Σ(rᵢ × wᵢ) / Σ(wᵢ)
 normalized_score = (weighted_score - 1) / 4 × 100
 ```
 
-The normalized score therefore maps `1 → 0` and `5 → 100` without changing the underlying human ratings. Aggregation is deterministic; interpretation remains a human responsibility.
+The normalized score maps `1 → 0` and `5 → 100` without changing the underlying human ratings.
+
+### Pairwise A/B
+
+Each criterion preference maps to a direction value:
+
+```text
+A = +1
+Tie = 0
+B = -1
+
+preference_score = Σ(directionᵢ × wᵢ) / Σ(wᵢ) × 100
+```
+
+Therefore `+100` means every weighted criterion favors A, `-100` means every weighted criterion favors B, and `0` means the criterion aggregate is balanced. This score does **not** replace `overall_preference` or `preference_strength`; those are retained as separate human judgments because a holistic decision is not necessarily identical to a criterion vote count.
+
+All aggregation is deterministic; interpretation remains a human responsibility.
 
 ## Audio and privacy
 
@@ -170,11 +221,11 @@ JSON / workbench form
         ↓
 serialization
         ↓
-typed domain model
+typed scalar or pairwise domain model
         ↓
 type + rubric validation ── versioned built-in rubrics
         ↓
-deterministic scoring
+deterministic scalar / pairwise aggregation
         ↓
 CLI result / append-only local history / JSON export
 ```
@@ -190,17 +241,17 @@ mypy src
 pytest --cov=turkishevalkit --cov-report=term-missing
 ```
 
-CI runs the quality suite on Python 3.11, 3.12, and 3.13 and executes the example workflows through the installed CLI.
+CI runs the quality suite on Python 3.11, 3.12, and 3.13, executes all example workflows through the installed CLI, exercises the live localhost API, and runs desktop/mobile Chromium flows for Text, Audio, and Pairwise modes.
 
 ## Roadmap
 
 Near-term work remains ordered around evaluator correctness rather than surface area:
 
-1. harden the local workbench and history/export schema;
-2. add a typed pairwise A/B decision model with tie and insufficient-evidence handling;
-3. add timestamped audio issue annotations without embedding private media;
-4. add evaluator-session metadata and review states;
-5. add agreement/calibration tooling for multi-evaluator workflows;
+1. harden pairwise schema semantics and history/export compatibility;
+2. add timestamped audio issue annotations without embedding private media;
+3. add evaluator-session metadata and review states;
+4. add agreement/calibration tooling for multi-evaluator workflows;
+5. add adjudication/review queues without hiding disagreement;
 6. publish stable schema documentation and migration rules before a `1.0` interchange format.
 
 ## Contributing

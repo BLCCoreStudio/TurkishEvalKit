@@ -7,7 +7,9 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from .evaluation import evaluate_submission
+from .evaluation import EvaluationResult, evaluate_submission
+from .models import PairwiseEvaluationRecord, Preference
+from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .rubrics import BUILTIN_RUBRICS
 from .serialization import load_record, result_to_dict, write_result
 
@@ -17,6 +19,12 @@ def _port(value: str) -> int:
     if not 1 <= parsed <= 65535:
         raise argparse.ArgumentTypeError("port must be between 1 and 65535")
     return parsed
+
+
+def _pairwise_outcome(result: PairwiseEvaluationResult) -> str:
+    if result.overall_preference is Preference.TIE:
+        return "Tie"
+    return f"{result.overall_preference.value.upper()} preferred"
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -87,8 +95,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ValueError(
                     f"unknown rubric '{record.rubric_id}'; available rubrics: {available}"
                 )
-            result = evaluate_submission(record, rubric)
-        except (OSError, ValueError) as exc:
+            result: EvaluationResult | PairwiseEvaluationResult
+            if isinstance(record, PairwiseEvaluationRecord):
+                result = evaluate_pairwise_submission(record, rubric)
+            else:
+                result = evaluate_submission(record, rubric)
+        except (OSError, TypeError, ValueError) as exc:
             parser.exit(2, f"error: {exc}\n")
 
         if args.output is not None:
@@ -96,6 +108,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.json:
             print(json.dumps(result_to_dict(result), ensure_ascii=False, indent=2))
+        elif isinstance(result, PairwiseEvaluationResult):
+            print(
+                f"{result.task_id}: {_pairwise_outcome(result)} · "
+                f"criterion preference {result.preference_score:+.2f}/100 · "
+                f"strength {result.preference_strength}/3"
+            )
         else:
             print(
                 f"{result.task_id}: {result.weighted_score:.3f}/5 "
