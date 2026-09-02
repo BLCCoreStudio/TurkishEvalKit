@@ -1,17 +1,17 @@
-"""Local review-queue dashboard layered over the existing workbench application."""
+"""Local review-queue routes and queue-first launcher."""
 
 from __future__ import annotations
 
 import argparse
 import threading
 import webbrowser
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
 from .review_queue import QueueAction, QueueQuery, QueueSort, build_review_queue
-from .workbench import create_app as create_workbench_app
-from .workbench import default_workspace, list_history
+
+HistoryLoader = Callable[[Path], list[dict[str, Any]]]
 
 
 def _positive_int(raw: str | None, *, default: int, name: str) -> int:
@@ -24,8 +24,12 @@ def _positive_int(raw: str | None, *, default: int, name: str) -> int:
     return value
 
 
-def create_review_queue_app(workspace: Path | None = None) -> Any:
-    """Create the normal workbench plus review-queue routes."""
+def register_review_queue_routes(
+    app: Any,
+    workspace: Path,
+    history_loader: HistoryLoader,
+) -> None:
+    """Register read/query UI plus queue routes on an existing workbench app."""
 
     try:
         from flask import jsonify, render_template, request
@@ -34,9 +38,6 @@ def create_review_queue_app(workspace: Path | None = None) -> Any:
             'The review queue requires the workbench dependency. '
             'Install with: python -m pip install "turkishevalkit[workbench]"'
         ) from exc
-
-    resolved_workspace = (workspace or default_workspace()).expanduser().resolve()
-    app = create_workbench_app(resolved_workspace)
 
     @app.get("/queue")
     def review_queue_page() -> str:
@@ -67,12 +68,18 @@ def create_review_queue_app(workspace: Path | None = None) -> Any:
                     request.args.get("per_page"), default=50, name="per_page"
                 ),
             )
-            payload = build_review_queue(list_history(resolved_workspace), query)
+            payload = build_review_queue(history_loader(workspace), query)
         except (OSError, ValueError) as exc:
             return jsonify({"error": str(exc)}), 400
         return jsonify(payload)
 
-    return app
+
+def create_review_queue_app(workspace: Path | None = None) -> Any:
+    """Create the normal workbench application, including its queue routes."""
+
+    from .workbench import create_app
+
+    return create_app(workspace)
 
 
 def run_review_queue(
@@ -81,7 +88,7 @@ def run_review_queue(
     port: int = 8765,
     open_browser: bool = True,
 ) -> None:
-    """Run the combined workbench and queue server on loopback only."""
+    """Run the combined workbench and open its review queue on loopback only."""
 
     if not 1 <= port <= 65535:
         raise ValueError("port must be between 1 and 65535")
