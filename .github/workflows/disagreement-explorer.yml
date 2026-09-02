@@ -1,0 +1,91 @@
+name: Disagreement Explorer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/disagreement-explorer.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/__init__.py"
+      - "src/turkishevalkit/disagreement.py"
+      - "src/turkishevalkit/calibration_dashboard.py"
+      - "src/turkishevalkit/templates/calibration.html"
+      - "src/turkishevalkit/static/calibration.css"
+      - "src/turkishevalkit/static/calibration.js"
+      - "tests/test_disagreement.py"
+      - "tests/test_disagreement_dashboard.py"
+  pull_request:
+    paths:
+      - ".github/workflows/disagreement-explorer.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/__init__.py"
+      - "src/turkishevalkit/disagreement.py"
+      - "src/turkishevalkit/calibration_dashboard.py"
+      - "src/turkishevalkit/templates/calibration.html"
+      - "src/turkishevalkit/static/calibration.css"
+      - "src/turkishevalkit/static/calibration.js"
+      - "tests/test_disagreement.py"
+      - "tests/test_disagreement_dashboard.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: disagreement-explorer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  explorer-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Explorer tests
+        run: pytest -q tests/test_disagreement.py tests/test_disagreement_dashboard.py
+
+      - name: JavaScript syntax
+        run: node --check src/turkishevalkit/static/calibration.js
+
+      - name: Public API smoke
+        run: |
+          python - <<'PY'
+          import turkishevalkit
+          from turkishevalkit import build_disagreement_report
+
+          assert turkishevalkit.__version__ == "0.9.0"
+          assert callable(build_disagreement_report)
+          PY
+
+      - name: Wheel explorer assets
+        run: |
+          rm -rf /tmp/turkishevalkit-disagreement-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-disagreement-wheel
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(
+              Path("/tmp/turkishevalkit-disagreement-wheel").glob("turkishevalkit-*.whl")
+          )
+          required = {
+              "turkishevalkit/disagreement.py",
+              "turkishevalkit/templates/calibration.html",
+              "turkishevalkit/static/calibration.css",
+              "turkishevalkit/static/calibration.js",
+          }
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          missing = required - names
+          if missing:
+              raise SystemExit(f"missing disagreement explorer assets: {sorted(missing)}")
+          PY
