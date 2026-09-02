@@ -48,7 +48,9 @@ AUDIO_QUALITY_RUBRIC = Rubric(
         RubricCriterion(
             id="pronunciation",
             label="Pronunciation",
-            description="Turkish phonemes, proper nouns, suffixes, and word stress are pronounced clearly.",
+            description=(
+                "Turkish phonemes, proper nouns, suffixes, and word stress are pronounced clearly."
+            ),
         ),
         RubricCriterion(
             id="fluency",
@@ -63,7 +65,10 @@ AUDIO_QUALITY_RUBRIC = Rubric(
         RubricCriterion(
             id="audio_artifacts",
             label="Audio cleanliness",
-            description="Speech is free from clipping, glitches, repetitions, or distracting synthesis artifacts.",
+            description=(
+                "Speech is free from clipping, glitches, repetitions, or distracting synthesis "
+                "artifacts."
+            ),
         ),
     ),
 )
