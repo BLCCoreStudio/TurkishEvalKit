@@ -71,7 +71,6 @@ def _audio_annotations(data: dict[str, Any]) -> tuple[AudioAnnotation, ...]:
     raw_annotations = data.get("audio_annotations", [])
     if not isinstance(raw_annotations, list):
         raise ValueError("audio_annotations must be a list")
-
     annotations: list[AudioAnnotation] = []
     for item in raw_annotations:
         if not isinstance(item, dict):
@@ -101,12 +100,10 @@ def record_from_dict(data: dict[str, Any]) -> SubmissionRecord:
 
     evaluation_type = _evaluation_type(data)
     source, metadata = _source_and_metadata(data)
-
     if evaluation_type is EvaluationType.PAIRWISE:
         raw_judgments = data.get("judgments")
         if not isinstance(raw_judgments, list):
             raise ValueError("judgments must be a list")
-
         judgments: list[PairwiseJudgment] = []
         for item in raw_judgments:
             if not isinstance(item, dict):
@@ -118,7 +115,6 @@ def record_from_dict(data: dict[str, Any]) -> SubmissionRecord:
                     note=str(item.get("note", "")),
                 )
             )
-
         return PairwiseEvaluationRecord(
             task_id=str(data.get("task_id", "")),
             rubric_id=str(data.get("rubric_id", "")),
@@ -133,11 +129,9 @@ def record_from_dict(data: dict[str, Any]) -> SubmissionRecord:
             source=source,
             metadata=metadata,
         )
-
     raw_ratings = data.get("ratings")
     if not isinstance(raw_ratings, list):
         raise ValueError("ratings must be a list")
-
     ratings: list[Rating] = []
     for item in raw_ratings:
         if not isinstance(item, dict):
@@ -149,7 +143,6 @@ def record_from_dict(data: dict[str, Any]) -> SubmissionRecord:
                 note=str(item.get("note", "")),
             )
         )
-
     return EvaluationRecord(
         task_id=str(data.get("task_id", "")),
         evaluation_type=evaluation_type,
@@ -222,6 +215,7 @@ def workflow_to_dict(workflow: EvaluationWorkflow) -> dict[str, Any]:
                     if event.adjudication_outcome is not None
                     else None
                 ),
+                "related_artifact_id": event.related_artifact_id,
             }
             for event in workflow.events
         ],
@@ -237,18 +231,15 @@ def workflow_from_dict(data: dict[str, Any]) -> EvaluationWorkflow:
         raise ValueError("workflow session must be an object")
     if not isinstance(raw_events, list):
         raise ValueError("workflow events must be a list")
-
     session = EvaluationSession(
         session_id=str(raw_session.get("session_id", "")),
         evaluator_id=str(raw_session.get("evaluator_id", "")),
         started_at=str(raw_session.get("started_at", "")),
     )
-
     events: list[WorkflowEvent] = []
     for item in raw_events:
         if not isinstance(item, dict):
             raise ValueError("each workflow event must be an object")
-
         raw_from_state = item.get("from_state")
         from_state = (
             None
@@ -271,7 +262,10 @@ def workflow_from_dict(data: dict[str, Any]) -> EvaluationWorkflow:
                 "adjudication_outcome",
             )
         )
-
+        raw_related_artifact = item.get("related_artifact_id")
+        related_artifact_id = (
+            None if raw_related_artifact is None else str(raw_related_artifact)
+        )
         events.append(
             WorkflowEvent(
                 sequence=int(item.get("sequence", 0)),
@@ -285,9 +279,9 @@ def workflow_from_dict(data: dict[str, Any]) -> EvaluationWorkflow:
                 note=str(item.get("note", "")),
                 review_outcome=review_outcome,
                 adjudication_outcome=adjudication_outcome,
+                related_artifact_id=related_artifact_id,
             )
         )
-
     return EvaluationWorkflow(
         artifact_id=str(data.get("artifact_id", "")),
         task_id=str(data.get("task_id", "")),
