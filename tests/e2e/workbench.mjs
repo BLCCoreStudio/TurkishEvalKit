@@ -24,7 +24,7 @@ async function rateEveryCriterion(page, score) {
 
   for (let index = 0; index < count; index += 1) {
     const row = criteria.nth(index);
-    await row.locator(`input[type="radio"][value="${score}"]`).check();
+    await row.locator(".score-group label", { hasText: String(score) }).click();
   }
 }
 
