@@ -7,11 +7,14 @@ import threading
 import webbrowser
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .review_queue import QueueAction, QueueQuery, QueueSort, build_review_queue
 from .workbench import create_app as create_workbench_app
 from .workbench import default_workspace, list_history
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 HistoryLoader = Callable[[Path], list[dict[str, Any]]]
 
@@ -27,7 +30,7 @@ def _positive_int(raw: str | None, *, default: int, name: str) -> int:
 
 
 def register_review_queue_routes(
-    app: Any,
+    app: Flask,
     workspace: Path,
     history_loader: HistoryLoader,
 ) -> None:
@@ -76,7 +79,7 @@ def register_review_queue_routes(
         return jsonify(payload)
 
 
-def create_review_queue_app(workspace: Path | None = None) -> Any:
+def create_review_queue_app(workspace: Path | None = None) -> Flask:
     """Create the workbench and add queue routes without replacing its core APIs."""
 
     resolved_workspace = (workspace or default_workspace()).expanduser().resolve()
