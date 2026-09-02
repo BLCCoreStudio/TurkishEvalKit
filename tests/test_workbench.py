@@ -115,7 +115,11 @@ def test_workbench_routes_validate_save_list_and_export(tmp_path: Path) -> None:
     config_payload = config.get_json()
     assert config_payload["workspace"] == str(tmp_path.resolve())
     assert len(config_payload["rubrics"]) == 3
-    assert config_payload["workflow"]["review_outcomes"] == ["accept", "escalate"]
+    assert config_payload["workflow"]["review_outcomes"] == [
+        "accept",
+        "request_changes",
+        "escalate",
+    ]
     assert set(config_payload["workflow"]["adjudication_outcomes"]) == {
         "evaluation_upheld",
         "review_concern_upheld",

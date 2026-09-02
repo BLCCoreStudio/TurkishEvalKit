@@ -1,4 +1,4 @@
-"""Typed evaluator-session, review, and adjudication workflow primitives."""
+"""Typed evaluator-session, review, revision, and adjudication workflow primitives."""
 
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ class WorkflowState(StrEnum):
     DRAFT = "draft"
     SUBMITTED = "submitted"
     REVIEWED = "reviewed"
+    REVISION_REQUESTED = "revision_requested"
+    SUPERSEDED = "superseded"
     ADJUDICATED = "adjudicated"
 
 
@@ -31,6 +33,7 @@ class WorkflowEventKind(StrEnum):
     CREATED = "created"
     SUBMITTED = "submitted"
     REVIEWED = "reviewed"
+    REVISION_CREATED = "revision_created"
     ADJUDICATED = "adjudicated"
 
 
@@ -38,6 +41,7 @@ class ReviewOutcome(StrEnum):
     """Reviewer disposition without mutating the original evaluation."""
 
     ACCEPT = "accept"
+    REQUEST_CHANGES = "request_changes"
     ESCALATE = "escalate"
 
 
@@ -80,6 +84,7 @@ class WorkflowEvent:
     note: str = ""
     review_outcome: ReviewOutcome | None = None
     adjudication_outcome: AdjudicationOutcome | None = None
+    related_artifact_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.sequence < 1:
@@ -97,6 +102,13 @@ class WorkflowEvent:
             raise ValueError("adjudication events require adjudication_outcome")
         if self.kind is not WorkflowEventKind.ADJUDICATED and self.adjudication_outcome is not None:
             raise ValueError("adjudication_outcome is only valid on adjudication events")
+        if self.kind is WorkflowEventKind.REVISION_CREATED and not self.related_artifact_id:
+            raise ValueError("revision events require related_artifact_id")
+        if (
+            self.kind is not WorkflowEventKind.REVISION_CREATED
+            and self.related_artifact_id is not None
+        ):
+            raise ValueError("related_artifact_id is only valid on revision events")
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +162,15 @@ class EvaluationWorkflow:
         for event in reversed(self.events):
             if event.adjudication_outcome is not None:
                 return event.adjudication_outcome
+        return None
+
+    @property
+    def superseded_by(self) -> str | None:
+        """Return the revision artifact that superseded this workflow, if present."""
+
+        for event in reversed(self.events):
+            if event.kind is WorkflowEventKind.REVISION_CREATED:
+                return event.related_artifact_id
         return None
 
 
@@ -232,15 +253,50 @@ def review_workflow(
         raise ValueError("reviewer must be different from the evaluator")
     if outcome is ReviewOutcome.ESCALATE and not note.strip():
         raise ValueError("escalated reviews require a note explaining the disagreement")
+    if outcome is ReviewOutcome.REQUEST_CHANGES and not note.strip():
+        raise ValueError("request-changes reviews require an explanatory note")
+    to_state = (
+        WorkflowState.REVISION_REQUESTED
+        if outcome is ReviewOutcome.REQUEST_CHANGES
+        else WorkflowState.REVIEWED
+    )
     return _append(
         workflow,
         kind=WorkflowEventKind.REVIEWED,
-        to_state=WorkflowState.REVIEWED,
+        to_state=to_state,
         actor_id=reviewer_id,
         actor_role=ActorRole.REVIEWER,
         occurred_at=occurred_at,
         note=note,
         review_outcome=outcome,
+    )
+
+
+def mark_revision_created(
+    workflow: EvaluationWorkflow,
+    *,
+    actor_id: str,
+    revised_artifact_id: str,
+    occurred_at: str | None = None,
+) -> EvaluationWorkflow:
+    """Mark a request-changes artifact as superseded by a newly saved revision."""
+
+    _require_state(workflow, WorkflowState.REVISION_REQUESTED, "create revision from")
+    if workflow.review_outcome is not ReviewOutcome.REQUEST_CHANGES:
+        raise ValueError("revision creation requires a request-changes review")
+    if actor_id != workflow.session.evaluator_id:
+        raise ValueError("only the original evaluator can create the requested revision")
+    if not revised_artifact_id.strip() or revised_artifact_id == workflow.artifact_id:
+        raise ValueError("revised_artifact_id must identify a different saved artifact")
+    return _append(
+        workflow,
+        kind=WorkflowEventKind.REVISION_CREATED,
+        to_state=WorkflowState.SUPERSEDED,
+        actor_id=actor_id,
+        actor_role=ActorRole.EVALUATOR,
+        occurred_at=occurred_at,
+        note="Requested revision created.",
+        related_artifact_id=revised_artifact_id,
     )
 
 
@@ -284,6 +340,7 @@ def _append(
     occurred_at: str | None,
     review_outcome: ReviewOutcome | None = None,
     adjudication_outcome: AdjudicationOutcome | None = None,
+    related_artifact_id: str | None = None,
 ) -> EvaluationWorkflow:
     event = _event(
         sequence=len(workflow.events) + 1,
@@ -296,6 +353,7 @@ def _append(
         note=note,
         review_outcome=review_outcome,
         adjudication_outcome=adjudication_outcome,
+        related_artifact_id=related_artifact_id,
     )
     return replace(workflow, state=to_state, events=(*workflow.events, event))
 
@@ -312,6 +370,7 @@ def _event(
     note: str,
     review_outcome: ReviewOutcome | None = None,
     adjudication_outcome: AdjudicationOutcome | None = None,
+    related_artifact_id: str | None = None,
 ) -> WorkflowEvent:
     return WorkflowEvent(
         sequence=sequence,
@@ -325,6 +384,7 @@ def _event(
         note=note.strip(),
         review_outcome=review_outcome,
         adjudication_outcome=adjudication_outcome,
+        related_artifact_id=related_artifact_id,
     )
 
 

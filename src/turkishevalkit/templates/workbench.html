@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='calibration.css') }}">
   <script defer src="{{ url_for('static', filename='workbench.js') }}"></script>
   <script defer src="{{ url_for('static', filename='audio_annotations.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='revision_workbench.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='revision_history.js') }}"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -54,9 +56,9 @@
           <span class="eyebrow">Human judgment first</span>
           <h2>Evaluate Turkish AI quality with an explicit, versioned rubric.</h2>
           <p>
-            The workbench validates the record and computes the aggregate. Review and
-            adjudication are stored separately so later decisions never rewrite the
-            evaluator's original evidence.
+            The workbench validates the record and computes the aggregate. Review,
+            revision, adjudication, and calibration remain separate artifacts so later
+            decisions never rewrite the evaluator's original evidence.
           </p>
         </section>
 
