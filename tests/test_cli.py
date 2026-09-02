@@ -62,6 +62,56 @@ def test_evaluate_command_rejects_missing_file() -> None:
     assert exc_info.value.code == 2
 
 
+def test_calibrate_command_emits_json(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["calibrate", "examples/calibration-text.json", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["task_id"] == "text-calibration-001"
+    assert payload["evaluator_count"] == 2
+    assert payload["exact_criterion_agreement_rate"] == 0.6
+    assert payload["within_one_criterion_agreement_rate"] == 1.0
+
+
+def test_calibrate_audio_command_has_human_summary(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["calibrate", "examples/calibration-audio.json"]) == 0
+    output = capsys.readouterr().out
+    assert "2 evaluators" in output
+    assert "criterion exact agreement 60.0%" in output
+    assert "annotation F1 0.800" in output
+
+
+def test_calibrate_pairwise_command_can_write_output(tmp_path: Path) -> None:
+    destination = tmp_path / "pairwise-calibration.json"
+    assert (
+        main(
+            [
+                "calibrate",
+                "examples/calibration-pairwise.json",
+                "--output",
+                str(destination),
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(destination.read_text(encoding="utf-8"))
+    assert payload["overall_preference_agreement_rate"] == 1.0
+    assert payload["aggregate_score_spread"] == 20.0
+
+
+def test_calibrate_command_rejects_negative_tolerance() -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            [
+                "calibrate",
+                "examples/calibration-audio.json",
+                "--annotation-tolerance-ms",
+                "-1",
+            ]
+        )
+    assert exc_info.value.code == 2
+
+
 def test_workbench_command_delegates_to_local_runner(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
