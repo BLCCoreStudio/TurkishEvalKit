@@ -34,6 +34,14 @@ from .models import (
     RubricCriterion,
 )
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
+from .reliability import (
+    CriterionReliability,
+    PopulationReliabilityReport,
+    PopulationReliabilitySpec,
+    ReliabilityEstimate,
+    ReliabilityTask,
+    build_population_reliability_report,
+)
 from .rubrics import AUDIO_QUALITY_RUBRIC, PAIRWISE_QUALITY_RUBRIC, TEXT_QUALITY_RUBRIC
 from .workflow import (
     ActorRole,
@@ -67,6 +75,7 @@ __all__ = [
     "CriterionAgreement",
     "CriterionDisagreement",
     "CriterionPairDisagreement",
+    "CriterionReliability",
     "DisagreementReport",
     "EvaluationRecord",
     "EvaluationSession",
@@ -79,8 +88,12 @@ __all__ = [
     "PairwiseEvaluationRecord",
     "PairwiseEvaluationResult",
     "PairwiseJudgment",
+    "PopulationReliabilityReport",
+    "PopulationReliabilitySpec",
     "Preference",
     "Rating",
+    "ReliabilityEstimate",
+    "ReliabilityTask",
     "ReviewOutcome",
     "Rubric",
     "RubricCriterion",
@@ -90,6 +103,7 @@ __all__ = [
     "adjudicate_workflow",
     "build_calibration_report",
     "build_disagreement_report",
+    "build_population_reliability_report",
     "create_workflow",
     "evaluate_pairwise_submission",
     "evaluate_submission",
@@ -97,4 +111,4 @@ __all__ = [
     "submit_workflow",
 ]
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"

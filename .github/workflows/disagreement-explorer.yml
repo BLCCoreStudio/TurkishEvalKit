@@ -62,7 +62,7 @@ jobs:
           import turkishevalkit
           from turkishevalkit import build_disagreement_report
 
-          assert turkishevalkit.__version__ == "0.9.0"
+          assert turkishevalkit.__version__ == "0.10.0"
           assert callable(build_disagreement_report)
           PY
 
