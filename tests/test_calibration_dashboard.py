@@ -19,25 +19,32 @@ def _text_payload(
         "rubric_id": "tr-text-quality",
         "rubric_version": "1.0",
         "source": {
-            "prompt": "Parola yöneticisinin neden yararlı olduğunu kısa biçimde açıkla.",
+            "prompt": "Explain briefly why a password manager is useful.",
             "response": (
-                "Parola yöneticisi her hesap için güçlü ve benzersiz parola kullanmayı "
-                "kolaylaştırır ve aynı parolayı tekrar kullanma ihtiyacını azaltır."
+                "A password manager makes it easier to use a strong unique password "
+                "for each account and reduces password reuse."
             ),
         },
         "ratings": [
-            {"criterion_id": "fluency", "score": scores[0], "note": "Akıcı."},
+            {"criterion_id": "fluency", "score": scores[0], "note": "Natural."},
             {
                 "criterion_id": "instruction_following",
                 "score": scores[1],
-                "note": "İstenen kapsamı izliyor.",
+                "note": "Follows scope.",
             },
-            {"criterion_id": "factuality", "score": scores[2], "note": "Doğru."},
-            {"criterion_id": "helpfulness", "score": scores[3], "note": "Yararlı."},
-            {"criterion_id": "locale_fit", "score": scores[4], "note": "Doğal Türkçe."},
+            {"criterion_id": "factuality", "score": scores[2], "note": "Accurate."},
+            {"criterion_id": "helpfulness", "score": scores[3], "note": "Useful."},
+            {
+                "criterion_id": "locale_fit",
+                "score": scores[4],
+                "note": "Locale fit checked.",
+            },
         ],
-        "evaluator_note": "Bağımsız insan değerlendirmesi.",
-        "justification_en": "The answer is concise and directly addresses the requested security benefit.",
+        "evaluator_note": "Independent human evaluation fixture.",
+        "justification_en": (
+            "The answer is concise and directly addresses the requested "
+            "security benefit."
+        ),
         "metadata": {"test_fixture": True},
     }
     if evaluator_id is not None:
@@ -121,18 +128,14 @@ def test_calibration_dashboard_creates_append_only_history(tmp_path: Path) -> No
     assert history[0]["evaluator_count"] == 2
     assert history[0]["source_artifact_count"] == 2
 
-    details_response = client.get(
-        f"/api/calibrations/{created['filename']}/details"
-    )
+    details_response = client.get(f"/api/calibrations/{created['filename']}/details")
     assert details_response.status_code == 200
     details = details_response.get_json()
     assert details["schema_version"] == "1.0"
     assert details["report"] == report
     assert {item["filename"] for item in details["source_artifacts"]} == {first, second}
 
-    download_response = client.get(
-        f"/api/calibrations/{created['filename']}/download"
-    )
+    download_response = client.get(f"/api/calibrations/{created['filename']}/download")
     assert download_response.status_code == 200
     exported = json.loads(download_response.get_data(as_text=True))
     assert exported["report"]["task_id"] == "dashboard-calibration-001"
