@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**", "chore/**", "release/**"]
+    branches: [main, "feat/**", "fix/**", "chore/**", "test/**", "release/**"]
   pull_request:
 
 permissions:
@@ -71,3 +71,132 @@ jobs:
           turkisheval evaluate examples/audio-evaluation.json --json > /tmp/audio-result.json
           grep -q '"normalized_score"' /tmp/text-result.json
           grep -q '"normalized_score"' /tmp/audio-result.json
+
+  live-workbench:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      WORKSPACE: /tmp/turkisheval-live
+      PORT: "8765"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install workbench
+        run: python -m pip install --disable-pip-version-check -e ".[workbench]"
+
+      - name: Start real localhost server
+        run: |
+          mkdir -p "$WORKSPACE"
+          turkisheval workbench --no-browser --workspace "$WORKSPACE" --port "$PORT" \
+            > "$RUNNER_TEMP/workbench.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/workbench.pid"
+
+          ready=0
+          for _ in $(seq 1 40); do
+            if curl --fail --silent --show-error \
+              "http://127.0.0.1:$PORT/api/config" \
+              > "$RUNNER_TEMP/config.json"; then
+              ready=1
+              break
+            fi
+            sleep 0.25
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat "$RUNNER_TEMP/workbench.log"
+            exit 1
+          fi
+
+          ss -ltn | grep -q "127.0.0.1:$PORT"
+          if ss -ltn | grep -q "0.0.0.0:$PORT"; then
+            echo "workbench unexpectedly bound to all IPv4 interfaces"
+            exit 1
+          fi
+
+      - name: Exercise real HTTP and persistence flow
+        run: |
+          curl --fail --silent --show-error "http://127.0.0.1:$PORT/" \
+            > "$RUNNER_TEMP/index.html"
+          grep -q "TurkishEvalKit" "$RUNNER_TEMP/index.html"
+
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/static/workbench.css" \
+            > "$RUNNER_TEMP/workbench.css"
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/static/workbench.js" \
+            > "$RUNNER_TEMP/workbench.js"
+          test -s "$RUNNER_TEMP/workbench.css"
+          test -s "$RUNNER_TEMP/workbench.js"
+          node --check "$RUNNER_TEMP/workbench.js"
+
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            --data-binary @examples/text-evaluation.json \
+            "http://127.0.0.1:$PORT/api/evaluations" \
+            > "$RUNNER_TEMP/text-created.json"
+
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            --data-binary @examples/audio-evaluation.json \
+            "http://127.0.0.1:$PORT/api/evaluations" \
+            > "$RUNNER_TEMP/audio-created.json"
+
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/api/history" \
+            > "$RUNNER_TEMP/history.json"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          temp = Path(os.environ["RUNNER_TEMP"])
+          workspace = Path(os.environ["WORKSPACE"])
+
+          text = json.loads((temp / "text-created.json").read_text())
+          audio = json.loads((temp / "audio-created.json").read_text())
+          history = json.loads((temp / "history.json").read_text())["items"]
+
+          assert text["result"]["task_id"] == "text-demo-001"
+          assert text["result"]["normalized_score"] == 95.0
+          assert audio["result"]["task_id"] == "audio-demo-001"
+          assert len(history) == 2
+          assert {item["evaluation_type"] for item in history} == {"text", "audio"}
+
+          persisted = list((workspace / "evaluations").glob("*.json"))
+          assert len(persisted) == 2
+
+          (temp / "export-name.txt").write_text(history[0]["filename"])
+          PY
+
+          export_name=$(cat "$RUNNER_TEMP/export-name.txt")
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:$PORT/api/history/$export_name" \
+            > "$RUNNER_TEMP/exported.json"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = json.loads((Path(os.environ["RUNNER_TEMP"]) / "exported.json").read_text())
+          assert payload["task_id"] in {"text-demo-001", "audio-demo-001"}
+          assert "normalized_score" in payload
+          PY
+
+      - name: Stop workbench
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/workbench.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/workbench.pid")" 2>/dev/null || true
+          fi
+          cat "$RUNNER_TEMP/workbench.log" 2>/dev/null || true
