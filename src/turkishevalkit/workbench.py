@@ -8,7 +8,7 @@ import re
 import sys
 import threading
 import webbrowser
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -73,7 +73,7 @@ def save_result(workspace: Path, result: EvaluationResult) -> Path:
 
     directory = _evaluation_dir(workspace)
     directory.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     destination = directory / f"{_safe_task_id(result.task_id)}-{timestamp}.json"
     temporary = destination.with_suffix(".json.tmp")
     payload = json.dumps(result_to_dict(result), ensure_ascii=False, indent=2) + "\n"
@@ -101,7 +101,7 @@ def list_history(workspace: Path) -> list[dict[str, Any]]:
 
         record = payload.get("payload")
         record_payload = record if isinstance(record, dict) else {}
-        saved_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+        saved_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat()
         entries.append(
             {
                 "filename": path.name,
