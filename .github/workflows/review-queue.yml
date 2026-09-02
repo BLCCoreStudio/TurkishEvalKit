@@ -6,22 +6,26 @@ on:
     paths:
       - ".github/workflows/review-queue.yml"
       - "pyproject.toml"
+      - "src/turkishevalkit/cli.py"
       - "src/turkishevalkit/review_queue.py"
       - "src/turkishevalkit/review_queue_app.py"
       - "src/turkishevalkit/templates/review_queue.html"
       - "src/turkishevalkit/static/review_queue.css"
       - "src/turkishevalkit/static/review_queue.js"
+      - "tests/test_cli_queue.py"
       - "tests/test_review_queue.py"
       - "tests/test_review_queue_app.py"
   pull_request:
     paths:
       - ".github/workflows/review-queue.yml"
       - "pyproject.toml"
+      - "src/turkishevalkit/cli.py"
       - "src/turkishevalkit/review_queue.py"
       - "src/turkishevalkit/review_queue_app.py"
       - "src/turkishevalkit/templates/review_queue.html"
       - "src/turkishevalkit/static/review_queue.css"
       - "src/turkishevalkit/static/review_queue.js"
+      - "tests/test_cli_queue.py"
       - "tests/test_review_queue.py"
       - "tests/test_review_queue_app.py"
 
@@ -49,13 +53,15 @@ jobs:
         run: python -m pip install --disable-pip-version-check -e ".[dev]"
 
       - name: Queue backend tests
-        run: pytest -q tests/test_review_queue.py tests/test_review_queue_app.py
+        run: pytest -q tests/test_cli_queue.py tests/test_review_queue.py tests/test_review_queue_app.py
 
       - name: JavaScript syntax
         run: node --check src/turkishevalkit/static/review_queue.js
 
-      - name: Console entry point
-        run: turkisheval-queue --help
+      - name: Console entry points
+        run: |
+          turkisheval queue --help
+          turkisheval-queue --help
 
       - name: Wheel queue assets
         run: |
