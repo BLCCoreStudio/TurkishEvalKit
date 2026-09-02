@@ -4,14 +4,14 @@ import pytest
 
 from turkishevalkit.workflow import (
     ActorRole,
-    adjudicate_workflow,
     AdjudicationOutcome,
-    create_workflow,
     ReviewOutcome,
-    review_workflow,
-    submit_workflow,
     WorkflowEventKind,
     WorkflowState,
+    adjudicate_workflow,
+    create_workflow,
+    review_workflow,
+    submit_workflow,
 )
 
 
