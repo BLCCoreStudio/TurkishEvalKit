@@ -5,11 +5,22 @@ from pathlib import Path
 import pytest
 
 from turkishevalkit.evaluation import evaluate_submission
-from turkishevalkit.models import EvaluationType, PairwiseEvaluationRecord, Preference
+from turkishevalkit.models import (
+    AudioIssueCategory,
+    AudioIssueSeverity,
+    EvaluationType,
+    PairwiseEvaluationRecord,
+    Preference,
+)
 from turkishevalkit.pairwise import evaluate_pairwise_submission
-from turkishevalkit.rubrics import PAIRWISE_QUALITY_RUBRIC, TEXT_QUALITY_RUBRIC
+from turkishevalkit.rubrics import (
+    AUDIO_QUALITY_RUBRIC,
+    PAIRWISE_QUALITY_RUBRIC,
+    TEXT_QUALITY_RUBRIC,
+)
 from turkishevalkit.serialization import (
     load_record,
+    record_from_dict,
     workflow_from_dict,
     workflow_to_dict,
     write_result,
@@ -39,6 +50,76 @@ def test_load_example_and_write_result(tmp_path: Path) -> None:
     assert '"task_id": "text-demo-001"' in rendered
     assert '"normalized_score"' in rendered
     assert "İki faktörlü" in rendered
+
+
+def test_load_audio_example_preserves_timestamped_annotations(tmp_path: Path) -> None:
+    record = load_record(Path("examples/audio-evaluation.json"))
+
+    assert record.evaluation_type is EvaluationType.AUDIO
+    assert record.rubric_id == AUDIO_QUALITY_RUBRIC.id
+    assert len(record.audio_annotations) == 2
+    assert record.audio_annotations[0].start_ms == 1850
+    assert record.audio_annotations[0].end_ms == 2550
+    assert record.audio_annotations[0].category is AudioIssueCategory.EMPHASIS
+    assert record.audio_annotations[0].severity is AudioIssueSeverity.MINOR
+    assert record.audio_annotations[1].start_ms == record.audio_annotations[1].end_ms == 5100
+
+    result = evaluate_submission(record, AUDIO_QUALITY_RUBRIC)
+    output = tmp_path / "audio-result.json"
+    write_result(output, result)
+
+    rendered = output.read_text(encoding="utf-8")
+    assert '"audio_annotations"' in rendered
+    assert '"start_ms": 1850' in rendered
+    assert '"category": "emphasis"' in rendered
+    assert "Cümle sonu tonlaması" in rendered
+
+
+def test_audio_annotation_deserialization_rejects_invalid_shapes_and_values() -> None:
+    base = {
+        "task_id": "audio",
+        "evaluation_type": "audio",
+        "rubric_id": "tr-audio-quality",
+        "rubric_version": "1.0",
+        "ratings": [
+            {"criterion_id": "nativeness", "score": 4},
+        ],
+    }
+
+    with pytest.raises(ValueError, match="audio_annotations must be a list"):
+        record_from_dict({**base, "audio_annotations": {}})
+    with pytest.raises(ValueError, match="each audio annotation must be an object"):
+        record_from_dict({**base, "audio_annotations": ["bad"]})
+    with pytest.raises(ValueError, match="audio annotation category must be one of"):
+        record_from_dict(
+            {
+                **base,
+                "audio_annotations": [
+                    {
+                        "start_ms": 0,
+                        "end_ms": 10,
+                        "category": "unknown",
+                        "severity": "minor",
+                        "note": "Issue",
+                    }
+                ],
+            }
+        )
+    with pytest.raises(ValueError, match="audio annotation severity must be one of"):
+        record_from_dict(
+            {
+                **base,
+                "audio_annotations": [
+                    {
+                        "start_ms": 0,
+                        "end_ms": 10,
+                        "category": "noise",
+                        "severity": "extreme",
+                        "note": "Issue",
+                    }
+                ],
+            }
+        )
 
 
 def test_load_pairwise_example_and_write_result(tmp_path: Path) -> None:
