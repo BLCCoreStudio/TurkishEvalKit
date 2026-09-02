@@ -8,11 +8,10 @@ from typing import Any
 
 
 class EvaluationType(str, Enum):
-    """Supported human-evaluation task families."""
+    """Supported human-evaluation task families in the current stable core."""
 
     TEXT = "text"
     AUDIO = "audio"
-    PAIRWISE = "pairwise"
 
 
 @dataclass(frozen=True, slots=True)
