@@ -192,15 +192,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"aggregate spread {report.aggregate_score_spread:.2f}"
             )
             if report.evaluation_type is EvaluationType.PAIRWISE:
-                summary += (
-                    " · overall preference agreement "
-                    f"{report.overall_preference_agreement_rate:.1%}"
-                )
+                overall_agreement = report.overall_preference_agreement_rate
+                assert overall_agreement is not None
+                summary += f" · overall preference agreement {overall_agreement:.1%}"
             else:
-                summary += (
-                    " · within-one agreement "
-                    f"{report.within_one_criterion_agreement_rate:.1%}"
-                )
+                within_one_agreement = report.within_one_criterion_agreement_rate
+                assert within_one_agreement is not None
+                summary += f" · within-one agreement {within_one_agreement:.1%}"
                 if report.audio_annotation_agreement is not None:
                     summary += (
                         " · annotation F1 "
