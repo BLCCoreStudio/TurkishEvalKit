@@ -1,0 +1,45 @@
+{
+  "task_id": "pairwise-demo-001",
+  "evaluation_type": "pairwise",
+  "rubric_id": "tr-pairwise-quality",
+  "rubric_version": "1.0",
+  "judgments": [
+    {
+      "criterion_id": "fluency",
+      "preference": "a",
+      "note": "A daha doğal ve akıcı bir Türkçe kullanıyor."
+    },
+    {
+      "criterion_id": "instruction_following",
+      "preference": "a",
+      "note": "A istenen biçimi daha doğrudan takip ediyor."
+    },
+    {
+      "criterion_id": "factuality",
+      "preference": "tie",
+      "note": "Her iki yanıtta da belirgin doğruluk sorunu yok."
+    },
+    {
+      "criterion_id": "helpfulness",
+      "preference": "b",
+      "note": "B biraz daha uygulanabilir ayrıntı sunuyor."
+    },
+    {
+      "criterion_id": "locale_fit",
+      "preference": "a",
+      "note": "A'nın ifade biçimi Türkiye Türkçesine daha doğal uyuyor."
+    }
+  ],
+  "overall_preference": "a",
+  "preference_strength": 2,
+  "evaluator_note": "A genel olarak daha doğal ve talimata daha uygun; B yalnızca yardımcılıkta küçük avantaj taşıyor.",
+  "justification_en": "Response A is preferred overall for stronger fluency, instruction following, and Turkish locale fit.",
+  "source": {
+    "prompt": "İki faktörlü kimlik doğrulamayı kısa ve anlaşılır biçimde açıkla.",
+    "response_a": "İki faktörlü kimlik doğrulama, şifrenize ek olarak ikinci bir doğrulama adımı kullanır.",
+    "response_b": "2FA, parolanın yanında telefonunuza gelen kod gibi ek bir kanıt ister ve hesap güvenliğini artırır."
+  },
+  "metadata": {
+    "example": true
+  }
+}
