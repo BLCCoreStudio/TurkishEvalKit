@@ -104,7 +104,10 @@ class WorkflowEvent:
             raise ValueError("adjudication_outcome is only valid on adjudication events")
         if self.kind is WorkflowEventKind.REVISION_CREATED and not self.related_artifact_id:
             raise ValueError("revision events require related_artifact_id")
-        if self.kind is not WorkflowEventKind.REVISION_CREATED and self.related_artifact_id is not None:
+        if (
+            self.kind is not WorkflowEventKind.REVISION_CREATED
+            and self.related_artifact_id is not None
+        ):
             raise ValueError("related_artifact_id is only valid on revision events")
 
 
@@ -248,8 +251,10 @@ def review_workflow(
     _require_state(workflow, WorkflowState.SUBMITTED, "review")
     if reviewer_id == workflow.session.evaluator_id:
         raise ValueError("reviewer must be different from the evaluator")
-    if outcome in {ReviewOutcome.ESCALATE, ReviewOutcome.REQUEST_CHANGES} and not note.strip():
-        raise ValueError("escalated and request-changes reviews require an explanatory note")
+    if outcome is ReviewOutcome.ESCALATE and not note.strip():
+        raise ValueError("escalated reviews require a note explaining the disagreement")
+    if outcome is ReviewOutcome.REQUEST_CHANGES and not note.strip():
+        raise ValueError("request-changes reviews require an explanatory note")
     to_state = (
         WorkflowState.REVISION_REQUESTED
         if outcome is ReviewOutcome.REQUEST_CHANGES
