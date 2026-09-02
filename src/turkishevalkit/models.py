@@ -141,11 +141,11 @@ class EvaluationRecord:
     rubric_id: str
     rubric_version: str
     ratings: tuple[Rating, ...]
-    audio_annotations: tuple[AudioAnnotation, ...] = ()
     evaluator_note: str = ""
     justification_en: str = ""
     source: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    audio_annotations: tuple[AudioAnnotation, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.task_id.strip():
