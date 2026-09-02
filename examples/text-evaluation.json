@@ -1,0 +1,23 @@
+{
+  "task_id": "text-demo-001",
+  "evaluation_type": "text",
+  "rubric_id": "tr-text-quality",
+  "rubric_version": "1.0",
+  "source": {
+    "prompt": "İki faktörlü kimlik doğrulamanın neden önemli olduğunu kısa ve açık şekilde anlat.",
+    "response": "İki faktörlü kimlik doğrulama, parolanız ele geçirilse bile hesabınıza giriş için ikinci bir doğrulama adımı ister. Bu nedenle tek başına parola kullanımına göre hesap ele geçirme riskini azaltır."
+  },
+  "ratings": [
+    {"criterion_id": "fluency", "score": 5, "note": "Akıcı ve doğal Türkçe."},
+    {"criterion_id": "instruction_following", "score": 5, "note": "Kısa ve doğrudan açıklıyor."},
+    {"criterion_id": "factuality", "score": 5, "note": "Temel güvenlik açıklaması doğru."},
+    {"criterion_id": "helpfulness", "score": 4, "note": "Yeterli; kısa bir örnek eklenebilirdi."},
+    {"criterion_id": "locale_fit", "score": 5, "note": "Türkçe terminoloji doğal."}
+  ],
+  "evaluator_note": "Yanıt belirgin bir dil veya doğruluk sorunu içermiyor.",
+  "justification_en": "The response is concise, natural in Turkish, follows the requested scope, and accurately explains the security benefit of a second authentication factor.",
+  "metadata": {
+    "example": true,
+    "human_authored_evaluation": true
+  }
+}
