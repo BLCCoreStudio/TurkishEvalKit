@@ -38,7 +38,11 @@ def test_text_disagreement_exposes_rating_pairs_and_notes() -> None:
     pair = instruction.pair_disagreements[0]
     assert pair.gap == 1
     assert pair.note_a == "\u0130stenen kapsam\u0131 do\u011frudan kar\u015f\u0131l\u0131yor."
-    assert pair.note_b == "\u0130ste\u011fi kar\u015f\u0131l\u0131yor; biraz daha k\u0131sa olabilirdi."
+    expected_b = (
+        "\u0130ste\u011fi kar\u015f\u0131l\u0131yor; "
+        "biraz daha k\u0131sa olabilirdi."
+    )
+    assert pair.note_b == expected_b
 
     unanimous = next(item for item in report.criteria if item.criterion_id == "fluency")
     assert unanimous.disagreement_pair_count == 0
