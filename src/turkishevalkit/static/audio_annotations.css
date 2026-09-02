@@ -1,0 +1,158 @@
+.audio-annotations-panel {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #2b3342;
+  border-radius: 13px;
+  background: #0d1118;
+}
+
+.audio-annotations-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.audio-annotations-heading strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+}
+
+.audio-annotations-heading p,
+.audio-annotation-help {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.audio-add-button,
+.audio-remove-button {
+  border: 1px solid #343d4e;
+  border-radius: 9px;
+  color: #c4ccda;
+  background: #151a23;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.audio-add-button {
+  padding: 8px 11px;
+  white-space: nowrap;
+}
+
+.audio-add-button:hover,
+.audio-remove-button:hover {
+  border-color: #56617a;
+  color: white;
+}
+
+.audio-annotation-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.audio-annotation-row {
+  display: grid;
+  grid-template-columns: 30px minmax(190px, 0.7fr) minmax(240px, 0.9fr) minmax(240px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #252d3b;
+  border-radius: 11px;
+  background: #11161e;
+}
+
+.audio-annotation-index {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  border: 1px solid #394255;
+  border-radius: 50%;
+  color: #9fa9ba;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.audio-time-grid,
+.audio-classification-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.audio-annotation-field {
+  margin-top: 0;
+}
+
+.audio-annotation-field input,
+.audio-annotation-field select {
+  padding: 9px 10px;
+  font-size: 10px;
+}
+
+.audio-annotation-field > span {
+  font-size: 10px;
+}
+
+.audio-note-field {
+  min-width: 0;
+}
+
+.audio-remove-button {
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+.audio-annotation-help code {
+  color: #c2c8ff;
+}
+
+@media (max-width: 1100px) {
+  .audio-annotation-row {
+    grid-template-columns: 30px 1fr 1fr;
+  }
+
+  .audio-note-field {
+    grid-column: 2 / 4;
+  }
+
+  .audio-remove-button {
+    grid-column: 3;
+    justify-self: end;
+  }
+}
+
+@media (max-width: 720px) {
+  .audio-annotations-heading {
+    flex-direction: column;
+  }
+
+  .audio-add-button {
+    width: 100%;
+  }
+
+  .audio-annotation-row {
+    grid-template-columns: 1fr;
+  }
+
+  .audio-annotation-index,
+  .audio-note-field,
+  .audio-remove-button {
+    grid-column: 1;
+  }
+
+  .audio-time-grid,
+  .audio-classification-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .audio-remove-button {
+    width: 100%;
+  }
+}
