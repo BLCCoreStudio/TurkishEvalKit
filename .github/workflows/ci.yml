@@ -200,3 +200,71 @@ jobs:
             kill "$(cat "$RUNNER_TEMP/workbench.pid")" 2>/dev/null || true
           fi
           cat "$RUNNER_TEMP/workbench.log" 2>/dev/null || true
+
+  browser-e2e:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WORKSPACE: /tmp/turkisheval-browser-workspace
+      PORT: "8766"
+      WORKBENCH_URL: http://127.0.0.1:8766
+      E2E_ARTIFACTS: /tmp/turkisheval-browser-e2e
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install workbench
+        run: python -m pip install --disable-pip-version-check -e ".[workbench]"
+
+      - name: Install pinned Playwright and Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.62.1
+          npx playwright install --with-deps chromium
+
+      - name: Start workbench for browser test
+        run: |
+          rm -rf "$WORKSPACE" "$E2E_ARTIFACTS"
+          mkdir -p "$WORKSPACE" "$E2E_ARTIFACTS"
+          turkisheval workbench --no-browser --workspace "$WORKSPACE" --port "$PORT" \
+            > "$RUNNER_TEMP/browser-workbench.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/browser-workbench.pid"
+
+          ready=0
+          for _ in $(seq 1 60); do
+            if curl --fail --silent "$WORKBENCH_URL/api/config" > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.25
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat "$RUNNER_TEMP/browser-workbench.log"
+            exit 1
+          fi
+
+      - name: Exercise desktop and mobile browser flows
+        run: node tests/e2e/workbench.mjs
+
+      - name: Verify browser artifacts and persisted records
+        run: |
+          test -s "$E2E_ARTIFACTS/desktop.png"
+          test -s "$E2E_ARTIFACTS/mobile.png"
+          test "$(find "$WORKSPACE/evaluations" -type f -name '*.json' | wc -l)" -eq 3
+          ls -lh "$E2E_ARTIFACTS"
+
+      - name: Stop browser test workbench
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/browser-workbench.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/browser-workbench.pid")" 2>/dev/null || true
+          fi
+          cat "$RUNNER_TEMP/browser-workbench.log" 2>/dev/null || true
