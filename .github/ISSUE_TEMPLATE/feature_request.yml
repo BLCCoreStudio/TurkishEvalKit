@@ -1,0 +1,37 @@
+name: Feature request
+description: Propose a new evaluation capability or improvement
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Evaluation problem
+      description: Describe the concrete evaluation or research problem before proposing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed capability
+      description: Explain the API, workflow, metric, report, or behavior you would add.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or use cases
+      description: Provide examples, papers, datasets, benchmarks, or real workflows that motivate the change when available.
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and methodology impact
+      description: Could this change outputs, historical comparability, stored artifacts, or public APIs?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and documentation for an equivalent capability.
+          required: true
