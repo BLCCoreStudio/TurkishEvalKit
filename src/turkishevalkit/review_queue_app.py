@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from .review_queue import QueueAction, QueueQuery, QueueSort, build_review_queue
+from .workbench import create_app as create_workbench_app
+from .workbench import default_workspace, list_history
 
 HistoryLoader = Callable[[Path], list[dict[str, Any]]]
 
@@ -29,7 +31,7 @@ def register_review_queue_routes(
     workspace: Path,
     history_loader: HistoryLoader,
 ) -> None:
-    """Register read/query UI plus queue routes on an existing workbench app."""
+    """Register queue UI/API routes on an existing local workbench application."""
 
     try:
         from flask import jsonify, render_template, request
@@ -75,11 +77,12 @@ def register_review_queue_routes(
 
 
 def create_review_queue_app(workspace: Path | None = None) -> Any:
-    """Create the normal workbench application, including its queue routes."""
+    """Create the workbench and add queue routes without replacing its core APIs."""
 
-    from .workbench import create_app
-
-    return create_app(workspace)
+    resolved_workspace = (workspace or default_workspace()).expanduser().resolve()
+    app = create_workbench_app(resolved_workspace)
+    register_review_queue_routes(app, resolved_workspace, list_history)
+    return app
 
 
 def run_review_queue(
