@@ -51,6 +51,9 @@ def evaluate_submission(record: EvaluationRecord, rubric: Rubric) -> EvaluationR
     )
     weighted_score = weighted_sum / total_weight
     normalized_score = ((weighted_score - 1.0) / 4.0) * 100.0
+    criterion_scores = {
+        criterion.id: rating_by_id[criterion.id].score for criterion in rubric.criteria
+    }
 
     return EvaluationResult(
         task_id=record.task_id,
@@ -58,6 +61,6 @@ def evaluate_submission(record: EvaluationRecord, rubric: Rubric) -> EvaluationR
         rubric_version=rubric.version,
         weighted_score=round(weighted_score, 3),
         normalized_score=round(normalized_score, 2),
-        criterion_scores={criterion.id: rating_by_id[criterion.id].score for criterion in rubric.criteria},
+        criterion_scores=criterion_scores,
         payload=asdict(record),
     )
