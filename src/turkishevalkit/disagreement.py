@@ -7,7 +7,13 @@ from itertools import combinations
 from typing import Any
 
 from .calibration import EvaluatorSubmission, build_calibration_report
-from .models import AudioAnnotation, EvaluationRecord, EvaluationType, PairwiseEvaluationRecord, Rubric
+from .models import (
+    AudioAnnotation,
+    EvaluationRecord,
+    EvaluationType,
+    PairwiseEvaluationRecord,
+    Rubric,
+)
 
 _PREFERENCE_POSITION = {"b": -1, "tie": 0, "a": 1}
 
