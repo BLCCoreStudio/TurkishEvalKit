@@ -16,6 +16,12 @@ from .calibration import (
 from .evaluation import EvaluationResult, evaluate_submission
 from .models import EvaluationType, PairwiseEvaluationRecord, Preference
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
+from .reliability import (
+    build_population_reliability_report,
+    load_reliability_spec,
+    population_reliability_report_to_dict,
+    write_population_reliability_report,
+)
 from .rubrics import BUILTIN_RUBRICS
 from .serialization import load_record, result_to_dict, write_result
 
@@ -108,6 +114,26 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_non_negative_int,
         default=250,
         help="Audio point/range matching tolerance in milliseconds (default: 250).",
+    )
+
+    reliability_parser = subparsers.add_parser(
+        "reliability",
+        help="Calculate population reliability across repeated independently rated tasks.",
+    )
+    reliability_parser.add_argument(
+        "input",
+        type=Path,
+        help="Path to a repeated-task reliability specification.",
+    )
+    reliability_parser.add_argument(
+        "--output",
+        type=Path,
+        help="Optional path for the population reliability report JSON.",
+    )
+    reliability_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the complete population reliability report as JSON.",
     )
 
     workbench_parser = subparsers.add_parser(
@@ -215,6 +241,50 @@ def main(argv: Sequence[str] | None = None) -> int:
                         f"{report.audio_annotation_agreement.mean_pairwise_f1:.3f}"
                     )
             print(summary)
+        return 0
+
+    if args.command == "reliability":
+        try:
+            spec = load_reliability_spec(args.input)
+            if not spec.tasks:
+                raise ValueError("reliability spec must contain repeated tasks")
+            rubric_id = spec.tasks[0].submissions[0].record.rubric_id
+            rubric = BUILTIN_RUBRICS.get(rubric_id)
+            if rubric is None:
+                available = ", ".join(sorted(BUILTIN_RUBRICS))
+                raise ValueError(
+                    f"unknown rubric '{rubric_id}'; available rubrics: {available}"
+                )
+            report = build_population_reliability_report(spec, rubric)
+        except (OSError, TypeError, ValueError) as exc:
+            parser.exit(2, f"error: {exc}\n")
+
+        if args.output is not None:
+            write_population_reliability_report(args.output, report)
+
+        if args.json:
+            print(
+                json.dumps(
+                    population_reliability_report_to_dict(report),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+        else:
+            print(
+                f"{report.task_count} tasks · {report.evaluation_type.value} · "
+                f"{report.rubric_id}@{report.rubric_version}"
+            )
+            for criterion_id, criterion in report.criterion_reliability.items():
+                alpha = criterion.krippendorff_alpha
+                alpha_text = (
+                    f"{alpha.value:.4f}" if alpha.applicable and alpha.value is not None else "n/a"
+                )
+                print(f"{criterion_id}: {alpha.metric}={alpha_text}")
+            if report.aggregate_score_icc_a1.applicable:
+                icc = report.aggregate_score_icc_a1.value
+                assert icc is not None
+                print(f"aggregate ICC(A,1)={icc:.4f}")
         return 0
 
     if args.command == "workbench":
