@@ -12,18 +12,20 @@ def _text_payload(
     evaluator_id: str | None,
     session_id: str = "calibration-session",
     scores: tuple[int, int, int, int, int] = (5, 5, 5, 4, 5),
+    task_id: str = "dashboard-calibration-001",
+    response_text: str = (
+        "A password manager makes it easier to use a strong unique password "
+        "for each account and reduces password reuse."
+    ),
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "task_id": "dashboard-calibration-001",
+        "task_id": task_id,
         "evaluation_type": "text",
         "rubric_id": "tr-text-quality",
         "rubric_version": "1.0",
         "source": {
             "prompt": "Explain briefly why a password manager is useful.",
-            "response": (
-                "A password manager makes it easier to use a strong unique password "
-                "for each account and reduces password reuse."
-            ),
+            "response": response_text,
         },
         "ratings": [
             {"criterion_id": "fluency", "score": scores[0], "note": "Natural."},
@@ -65,6 +67,18 @@ def _create_evaluation(client: Any, payload: dict[str, Any]) -> str:
     return filename
 
 
+def _create_two_compatible(client: Any) -> tuple[str, str]:
+    first = _create_evaluation(
+        client,
+        _text_payload(evaluator_id="evaluator-a", scores=(5, 5, 5, 4, 5)),
+    )
+    second = _create_evaluation(
+        client,
+        _text_payload(evaluator_id="evaluator-b", scores=(5, 4, 5, 4, 4)),
+    )
+    return first, second
+
+
 def test_calibration_dashboard_page_and_assets(tmp_path: Path) -> None:
     client = create_app(tmp_path).test_client()
 
@@ -79,17 +93,13 @@ def test_calibration_dashboard_page_and_assets(tmp_path: Path) -> None:
     index = client.get("/").get_data(as_text=True)
     assert 'href="/calibration"' in index
 
+    assert client.get("/static/calibration.css").status_code == 200
+    assert client.get("/static/calibration.js").status_code == 200
+
 
 def test_calibration_dashboard_creates_append_only_history(tmp_path: Path) -> None:
     client = create_app(tmp_path).test_client()
-    first = _create_evaluation(
-        client,
-        _text_payload(evaluator_id="evaluator-a", scores=(5, 5, 5, 4, 5)),
-    )
-    second = _create_evaluation(
-        client,
-        _text_payload(evaluator_id="evaluator-b", scores=(5, 4, 5, 4, 4)),
-    )
+    first, second = _create_two_compatible(client)
 
     candidates_response = client.get("/api/calibrations/candidates")
     assert candidates_response.status_code == 200
@@ -178,3 +188,101 @@ def test_calibration_dashboard_rejects_missing_identity_and_invalid_selection(
     assert "between 0 and 5000" in invalid_tolerance.get_json()["error"]
 
     assert client.get("/api/calibrations/../details").status_code == 404
+
+
+def test_calibration_dashboard_validates_request_shape_and_compatibility(tmp_path: Path) -> None:
+    client = create_app(tmp_path).test_client()
+    first, second = _create_two_compatible(client)
+    incompatible = _create_evaluation(
+        client,
+        _text_payload(
+            evaluator_id="evaluator-c",
+            response_text="A different source response must not be mixed into calibration.",
+        ),
+    )
+
+    not_json = client.post(
+        "/api/calibrations",
+        data="not-json",
+        content_type="text/plain",
+    )
+    assert not_json.status_code == 400
+    assert not_json.get_json()["error"] == "request body must be a JSON object"
+
+    one_file = client.post("/api/calibrations", json={"filenames": [first]})
+    assert one_file.status_code == 400
+    assert "at least two" in one_file.get_json()["error"]
+
+    invalid_filename_type = client.post(
+        "/api/calibrations",
+        json={"filenames": [first, 123]},
+    )
+    assert invalid_filename_type.status_code == 400
+    assert "non-empty strings" in invalid_filename_type.get_json()["error"]
+
+    bool_tolerance = client.post(
+        "/api/calibrations",
+        json={"filenames": [first, second], "annotation_tolerance_ms": True},
+    )
+    assert bool_tolerance.status_code == 400
+    assert "must be an integer" in bool_tolerance.get_json()["error"]
+
+    missing = client.post(
+        "/api/calibrations",
+        json={"filenames": [first, "missing-evaluation.json"]},
+    )
+    assert missing.status_code == 404
+
+    mismatch = client.post(
+        "/api/calibrations",
+        json={"filenames": [first, incompatible]},
+    )
+    assert mismatch.status_code == 400
+    assert "same source" in mismatch.get_json()["error"]
+
+
+def test_calibration_candidates_and_history_skip_corrupt_artifacts(tmp_path: Path) -> None:
+    client = create_app(tmp_path).test_client()
+    identified = _create_evaluation(client, _text_payload(evaluator_id="evaluator-a"))
+
+    evaluation_dir = tmp_path / "evaluations"
+    (evaluation_dir / "broken.json").write_text("{broken", encoding="utf-8")
+    (evaluation_dir / "array.json").write_text("[]", encoding="utf-8")
+    (evaluation_dir / "missing-payload.json").write_text("{}", encoding="utf-8")
+
+    workflow_path = tmp_path / "workflows" / f"{identified[:-5]}.workflow.json"
+    workflow_path.write_text("{broken", encoding="utf-8")
+
+    candidates = client.get("/api/calibrations/candidates").get_json()["items"]
+    assert len(candidates) == 1
+    assert candidates[0]["filename"] == identified
+    assert candidates[0]["calibration_ready"] is False
+    assert candidates[0]["evaluator_id"] is None
+
+    calibration_dir = tmp_path / "calibrations"
+    calibration_dir.mkdir()
+    (calibration_dir / "broken.calibration.json").write_text("{broken", encoding="utf-8")
+    (calibration_dir / "missing-report.calibration.json").write_text(
+        json.dumps({"created_at": "2026-09-02T00:00:00+00:00"}),
+        encoding="utf-8",
+    )
+    assert client.get("/api/calibrations").get_json()["items"] == []
+
+
+def test_calibration_details_reject_missing_and_corrupt_artifacts(tmp_path: Path) -> None:
+    client = create_app(tmp_path).test_client()
+    assert client.get("/api/calibrations/missing.calibration.json/details").status_code == 404
+    assert client.get("/api/calibrations/missing.calibration.json/download").status_code == 404
+
+    calibration_dir = tmp_path / "calibrations"
+    calibration_dir.mkdir()
+    broken = calibration_dir / "broken.calibration.json"
+    broken.write_text("{broken", encoding="utf-8")
+
+    details = client.get(f"/api/calibrations/{broken.name}/details")
+    assert details.status_code == 400
+    assert "invalid calibration artifact JSON" in details.get_json()["error"]
+
+    download = client.get(f"/api/calibrations/{broken.name}/download")
+    assert download.status_code == 400
+    assert "invalid calibration artifact JSON" in download.get_json()["error"]
