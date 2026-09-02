@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>TurkishEvalKit Review Queue</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='workbench.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='review_queue.css') }}">
+  <script defer src="{{ url_for('static', filename='review_queue.js') }}"></script>
+</head>
+<body>
+  <div class="queue-shell">
+    <header class="topbar queue-topbar">
+      <div class="brand-row">
+        <span class="brand-mark" aria-hidden="true">TE</span>
+        <div>
+          <h1>TurkishEvalKit</h1>
+          <p>Review queue</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a class="text-button" href="/">Workbench</a>
+        <a class="text-button" href="/calibration">Calibration</a>
+        <div class="local-pill" title="The server listens on localhost only">
+          <span class="status-dot" aria-hidden="true"></span>
+          Local-only
+        </div>
+      </div>
+    </header>
+
+    <main class="queue-main">
+      <section class="queue-hero">
+        <div>
+          <span class="eyebrow">Action-oriented workflow view</span>
+          <h2>Find the evaluation that needs attention next.</h2>
+          <p>
+            Queue state is derived from persisted workflow artifacts. Filtering and sorting are
+            read-only; review and adjudication actions continue to use the normal workflow API.
+          </p>
+        </div>
+        <button id="refreshQueue" class="primary-button" type="button">Refresh queue</button>
+      </section>
+
+      <section class="queue-summary" aria-label="Queue summary">
+        <article class="summary-card">
+          <span>Actionable</span>
+          <strong id="summaryActionable">—</strong>
+        </article>
+        <article class="summary-card">
+          <span>Awaiting review</span>
+          <strong id="summaryReview">—</strong>
+        </article>
+        <article class="summary-card">
+          <span>Revision requested</span>
+          <strong id="summaryRevision">—</strong>
+        </article>
+        <article class="summary-card">
+          <span>Awaiting adjudication</span>
+          <strong id="summaryAdjudication">—</strong>
+        </article>
+        <article class="summary-card">
+          <span>Workspace total</span>
+          <strong id="summaryTotal">—</strong>
+        </article>
+      </section>
+
+      <section class="queue-grid">
+        <aside class="queue-filters card">
+          <div class="section-heading compact-heading">
+            <div>
+              <span class="eyebrow">Filters</span>
+              <h3>Review set</h3>
+            </div>
+            <button id="clearFilters" class="text-button" type="button">Clear</button>
+          </div>
+
+          <label class="field">
+            <span>Search</span>
+            <input id="filterSearch" autocomplete="off" placeholder="Task, artifact, rubric, evaluator…">
+          </label>
+
+          <label class="field">
+            <span>Action</span>
+            <select id="filterAction">
+              <option value="">All actions</option>
+              <option value="awaiting_review">Awaiting review</option>
+              <option value="awaiting_revision">Awaiting revision</option>
+              <option value="awaiting_adjudication">Awaiting adjudication</option>
+              <option value="draft">Draft</option>
+              <option value="complete">Complete</option>
+              <option value="superseded">Superseded</option>
+              <option value="untracked">Untracked</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Evaluation type</span>
+            <select id="filterType"><option value="">All types</option></select>
+          </label>
+
+          <label class="field">
+            <span>Rubric</span>
+            <select id="filterRubric"><option value="">All rubrics</option></select>
+          </label>
+
+          <label class="field">
+            <span>Evaluator</span>
+            <select id="filterEvaluator"><option value="">All evaluators</option></select>
+          </label>
+
+          <label class="field">
+            <span>Sort</span>
+            <select id="filterSort">
+              <option value="priority">Action priority</option>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="task">Task ID</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Rows per page</span>
+            <select id="filterPageSize">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </aside>
+
+        <section class="queue-results card">
+          <div class="queue-results-head">
+            <div>
+              <span class="eyebrow">Results</span>
+              <h3 id="queueCount">Loading…</h3>
+            </div>
+            <div id="queueMessage" class="message" role="status" aria-live="polite"></div>
+          </div>
+
+          <div class="queue-table-wrap">
+            <table class="queue-table">
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>Task</th>
+                  <th>Type / rubric</th>
+                  <th>Evaluator</th>
+                  <th>Revision</th>
+                  <th>Saved</th>
+                </tr>
+              </thead>
+              <tbody id="queueBody"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination-row">
+            <button id="previousPage" class="text-button" type="button">Previous</button>
+            <span id="pageLabel">Page —</span>
+            <button id="nextPage" class="text-button" type="button">Next</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="queueDetails" class="card queue-details hidden" aria-live="polite">
+        <div class="queue-details-head">
+          <div>
+            <span class="eyebrow">Selected artifact</span>
+            <h3 id="detailTitle">Evaluation</h3>
+            <p id="detailMeta"></p>
+          </div>
+          <a id="detailJson" class="text-button" href="#">JSON</a>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-block">
+            <span>Workflow state</span>
+            <strong id="detailState">—</strong>
+          </div>
+          <div class="detail-block">
+            <span>Reviewer outcome</span>
+            <strong id="detailReviewOutcome">—</strong>
+          </div>
+          <div class="detail-block">
+            <span>Adjudication</span>
+            <strong id="detailAdjudication">—</strong>
+          </div>
+          <div class="detail-block">
+            <span>Lineage</span>
+            <strong id="detailLineage">—</strong>
+          </div>
+        </div>
+
+        <div id="reviewActionPanel" class="queue-action-panel hidden">
+          <div>
+            <span class="eyebrow">Reviewer action</span>
+            <h4>Review submitted evaluation</h4>
+          </div>
+          <div class="queue-action-fields">
+            <label class="field">
+              <span>Reviewer ID</span>
+              <input id="reviewerId" autocomplete="off">
+            </label>
+            <label class="field">
+              <span>Outcome</span>
+              <select id="reviewOutcome">
+                <option value="accept">Accept</option>
+                <option value="request_changes">Request changes</option>
+                <option value="escalate">Escalate</option>
+              </select>
+            </label>
+            <label class="field action-note-field">
+              <span>Note</span>
+              <textarea id="reviewNote" rows="3" placeholder="Required for request changes or escalation."></textarea>
+            </label>
+          </div>
+          <button id="submitReview" class="primary-button" type="button">Save review decision</button>
+        </div>
+
+        <div id="adjudicationActionPanel" class="queue-action-panel hidden">
+          <div>
+            <span class="eyebrow">Adjudicator action</span>
+            <h4>Resolve escalated review</h4>
+          </div>
+          <div class="queue-action-fields">
+            <label class="field">
+              <span>Adjudicator ID</span>
+              <input id="adjudicatorId" autocomplete="off">
+            </label>
+            <label class="field">
+              <span>Outcome</span>
+              <select id="adjudicationOutcome">
+                <option value="evaluation_upheld">Evaluation upheld</option>
+                <option value="review_concern_upheld">Review concern upheld</option>
+                <option value="inconclusive">Inconclusive</option>
+              </select>
+            </label>
+            <label class="field action-note-field">
+              <span>Note</span>
+              <textarea id="adjudicationNote" rows="3" placeholder="Explain the independent adjudication decision."></textarea>
+            </label>
+          </div>
+          <button id="submitAdjudication" class="primary-button" type="button">Save adjudication</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

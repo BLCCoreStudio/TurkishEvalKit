@@ -1,6 +1,6 @@
 # Architecture
 
-TurkishEvalKit keeps human judgment, deterministic scoring, workflow state, immutable revision lineage, calibration, and browser adapters separate. A later review, revision, adjudication, or calibration action must not silently rewrite an evaluator's earlier evidence.
+TurkishEvalKit keeps human judgment, deterministic scoring, workflow state, immutable revision lineage, review-queue projection, calibration, and browser adapters separate. A later review, revision, adjudication, queue query, or calibration action must not silently rewrite an evaluator's earlier evidence.
 
 ## Design goals
 
@@ -11,7 +11,8 @@ TurkishEvalKit keeps human judgment, deterministic scoring, workflow state, immu
 5. **Portability** — UTF-8 JSON is the interchange format; no database is required.
 6. **Interface independence** — CLI and browser flows use the same domain engines.
 7. **Server-owned process metadata** — workflow and revision relationships are not trusted from evaluator payload metadata.
-8. **Local-first operation** — the browser workbench binds to loopback and requires no remote service or CDN.
+8. **Derived operational views** — queue priority/filter state is computed from persisted artifacts rather than stored as a second workflow truth.
+9. **Local-first operation** — browser tools bind to loopback and require no remote service or CDN.
 
 ## Package layers
 
@@ -35,7 +36,7 @@ Validates A/Tie/B criterion judgments and computes the signed weighted `-100..+1
 
 ### `workflow.py`
 
-Defines lifecycle independently of scoring, revision payloads, and calibration.
+Defines lifecycle independently of scoring, revision payloads, queue projection, and calibration.
 
 The normal terminal paths are:
 
@@ -104,6 +105,34 @@ Adapts local workbench history to the calibration core. It:
 
 It does **not** implement a second agreement algorithm. A valid evaluation with a missing or malformed workflow sidecar remains visible in candidate history but is unavailable for calibration until evaluator attribution can be established safely.
 
+### `review_queue.py`
+
+Builds a read-only operational projection over evaluation-history metadata. It derives one action state from trusted workflow/revision summaries, applies bounded filters, sorts deterministically, computes facets, and paginates the result.
+
+Derived action states are:
+
+```text
+awaiting_review
+awaiting_revision
+awaiting_adjudication
+draft
+complete
+superseded
+untracked
+```
+
+The module does not write workflow state. Default action priority is an operational ordering only and is never interpreted as a quality, correctness, or evaluator-performance score.
+
+### `review_queue_app.py`
+
+Adds `/queue` and `/api/review-queue` to an ordinary workbench application, then exposes a queue-first launcher. It deliberately reuses:
+
+- `workbench.list_history` as the persisted-history source;
+- existing workflow review/adjudication endpoints for mutations;
+- the normal workbench and calibration routes in the same localhost process.
+
+The browser can therefore trigger legitimate workflow actions from the queue without introducing a second review state machine.
+
 ### `workbench.py`
 
 Localhost Flask adapter for evaluation creation, workflow transitions, revision persistence, history, and calibration-dashboard mounting.
@@ -122,11 +151,11 @@ Only after validation does the workbench create the child evaluation, child draf
 
 ### `cli.py`
 
-Thin adapter exposing `rubrics`, `evaluate`, `calibrate`, and `workbench`. It contains no alternative scoring, revision, or agreement semantics.
+Thin adapter exposing `rubrics`, `evaluate`, `calibrate`, `workbench`, and `queue`. It contains no alternative scoring, revision, queue-state, or agreement semantics.
 
 ### `templates/` and `static/`
 
-Browser code is an adapter, not a correctness boundary. Revision JavaScript can pre-fill a previous record and lock task/source fields for clarity, but the Python server repeats all identity and workflow checks.
+Browser code is an adapter, not a correctness boundary. Revision JavaScript can pre-fill a previous record and lock task/source fields for clarity, but the Python server repeats all identity and workflow checks. Queue JavaScript keeps filters in the URL and renders derived state, but the server repeats all filtering and workflow mutation validation.
 
 ## Evaluation boundary
 
@@ -184,6 +213,25 @@ source stimulus
 
 Human judgment fields may change. For scalar tasks this includes ratings and notes; for pairwise tasks it includes criterion/overall preferences; for audio tasks it can include timestamped issue evidence.
 
+## Review queue boundary
+
+```text
+evaluation history + workflow summaries + revision summaries
+                         ↓
+                derive action state
+                         ↓
+          search / filter / deterministic sort
+                         ↓
+                  bounded pagination
+                         ↓
+              local browser queue view
+                         │
+                         ├─ review → existing workflow endpoint
+                         └─ adjudicate → existing workflow endpoint
+```
+
+Queue results are disposable projections. No `<workspace>/queue/` directory exists, and queue priority is never persisted as process truth. A malformed or absent workflow sidecar produces conservative `untracked` behavior instead of invented attribution.
+
 ## Calibration boundary
 
 ```text
@@ -239,6 +287,10 @@ Immutable lineage metadata for child artifacts. Originals have no revision sidec
 
 Append-only derived agreement reports referencing explicit source evaluation filenames and evaluator identities from workflow attribution.
 
+### Review queue
+
+No additional persistent artifact class. Queue rows, action counts, facets, and pagination are derived from current local history each time they are requested.
+
 ## Score semantics
 
 ### Scalar
@@ -257,14 +309,20 @@ Agreement metrics describe consistency between already-authored evaluations. Exa
 
 A revision number is lineage metadata, not a quality metric. `r2` means the second superseding generation from the same root, not a better or worse evaluation than `r1`.
 
+### Queue
+
+Queue priority is not a score. It orders operational states so unresolved adjudication/review/revision work can be surfaced before completed or superseded artifacts.
+
 ## Failure and trust model
 
 - Browser controls are convenience only; server validation is authoritative.
 - Evaluation payload metadata cannot establish trusted revision parentage.
 - A malformed workflow sidecar is not silently interpreted as valid evaluator attribution.
 - A malformed revision sidecar is not silently accepted as lineage truth.
+- Queue action state is derived from trusted history summaries and is not persisted independently.
+- Queue query bounds prevent arbitrarily large pages or unbounded repeated filter values.
 - Child creation never uses the parent evaluation as rollback scratch space.
-- External LLM calls and telemetry are outside the current workbench path.
+- External LLM calls and telemetry are outside the current local interface path.
 
 ## Schema evolution
 
@@ -276,10 +334,11 @@ Before stable `1.0` interchange schemas are declared, JSON field names may evolv
 - workflow state/event semantics require explicit compatibility handling;
 - revision-lineage semantic changes require explicit versioning/migration;
 - calibration matching semantic changes must be documented/versioned;
+- queue action derivation changes must be documented because they alter operational projection semantics;
 - old evaluation records must never be silently reinterpreted under a newer rubric.
 
 ## Current limitations
 
-TurkishEvalKit currently does not open/decode media, verify actual media duration, generate waveforms, infer audio issues, convert annotation severity/count into automatic penalties, resolve evaluator disagreements automatically, rank evaluators, define universal calibration thresholds, create parallel revision branches, merge competing revisions, or edit previous evaluation artifacts in place.
+TurkishEvalKit currently does not open/decode media, verify actual media duration, generate waveforms, infer audio issues, convert annotation severity/count into automatic penalties, resolve evaluator disagreements automatically, rank evaluators, define universal calibration thresholds, persist a database-backed queue index, create parallel revision branches, merge competing revisions, or edit previous evaluation artifacts in place.
 
-See [`REVISION_WORKFLOW.md`](REVISION_WORKFLOW.md), [`REVIEW_WORKFLOW.md`](REVIEW_WORKFLOW.md), [`CALIBRATION.md`](CALIBRATION.md), [`CALIBRATION_DASHBOARD.md`](CALIBRATION_DASHBOARD.md), and [`AUDIO_ANNOTATIONS.md`](AUDIO_ANNOTATIONS.md) for domain-specific semantics.
+See [`REVISION_WORKFLOW.md`](REVISION_WORKFLOW.md), [`REVIEW_QUEUE.md`](REVIEW_QUEUE.md), [`REVIEW_WORKFLOW.md`](REVIEW_WORKFLOW.md), [`CALIBRATION.md`](CALIBRATION.md), [`CALIBRATION_DASHBOARD.md`](CALIBRATION_DASHBOARD.md), and [`AUDIO_ANNOTATIONS.md`](AUDIO_ANNOTATIONS.md) for domain-specific semantics.
