@@ -29,10 +29,6 @@ A focused pull request should explain:
 
 Avoid mixing large refactors with rubric changes.
 
-## AI-assisted contributions
-
-AI-assisted development is allowed, but contributors remain responsible for the submitted change. Review generated code and documentation, run the relevant tests, and keep commit or pull-request attribution accurate when an AI coding agent materially contributed.
-
 ## Rubric changes
 
 Rubrics are part of the evaluation contract. Do not silently edit a published rubric version in a way that changes its meaning.
