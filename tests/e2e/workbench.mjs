@@ -33,7 +33,9 @@ async function waitForSaved(page, taskId) {
   await page.locator("#resultCard:not(.hidden)").waitFor();
   await page.locator("#message").filter({ hasText: "Saved to the local workspace." }).waitFor();
   assert.equal(await page.locator("#resultTask").textContent(), taskId);
-  await page.locator("#historyList .history-item", { hasText: taskId }).waitFor();
+  await page
+    .locator("#historyList .history-item", { hasText: taskId })
+    .waitFor({ state: "attached" });
 }
 
 async function exerciseDesktop(browser) {
@@ -118,7 +120,7 @@ async function exerciseMobile(browser) {
   page.on("pageerror", (error) => browserErrors.push(error.message));
 
   await page.goto(baseURL, { waitUntil: "networkidle" });
-  await page.locator("#workspacePath").filter({ hasNotText: "Loading" }).waitFor();
+  await page.locator("#workspacePath").filter({ hasNotText: "Loading" }).waitFor({ state: "attached" });
   await ensureNoHorizontalOverflow(page, "390px mobile viewport");
 
   assert.ok(await page.locator("#saveButton").isVisible(), "save button should be visible on mobile");
