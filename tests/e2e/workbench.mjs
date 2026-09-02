@@ -199,7 +199,7 @@ async function exerciseMobile(browser) {
   await page.locator('label[for="overall-tie"]').click();
   await page.locator('label[for="strength-1"]').click();
   await waitForSaved(page, "e2e-mobile-pairwise-001");
-  assert.equal(await page.locator("#resultScore").textContent(), "TIE preferred · 0.00 A↔B");
+  assert.equal(await page.locator("#resultScore").textContent(), "Tie · 0.00 A↔B");
   await ensureNoHorizontalOverflow(page, "mobile pairwise viewport after result rendering");
 
   await page.screenshot({ path: path.join(artifacts, "mobile.png"), fullPage: true });
