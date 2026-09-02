@@ -14,7 +14,6 @@ from turkishevalkit.workflow import (
     submit_workflow,
 )
 
-
 CREATED_AT = "2026-09-02T10:00:00Z"
 SUBMITTED_AT = "2026-09-02T10:05:00Z"
 REVIEWED_AT = "2026-09-02T10:10:00Z"
