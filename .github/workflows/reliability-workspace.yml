@@ -1,0 +1,160 @@
+name: Reliability Workspace
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/reliability-workspace.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/reliability.py"
+      - "src/turkishevalkit/reliability_workspace.py"
+      - "src/turkishevalkit/workspace_evaluations.py"
+      - "src/turkishevalkit/workbench.py"
+      - "src/turkishevalkit/templates/reliability.html"
+      - "src/turkishevalkit/static/reliability.css"
+      - "src/turkishevalkit/static/reliability.js"
+      - "tests/test_reliability_workspace.py"
+  pull_request:
+    paths:
+      - ".github/workflows/reliability-workspace.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/reliability.py"
+      - "src/turkishevalkit/reliability_workspace.py"
+      - "src/turkishevalkit/workspace_evaluations.py"
+      - "src/turkishevalkit/workbench.py"
+      - "src/turkishevalkit/templates/reliability.html"
+      - "src/turkishevalkit/static/reliability.css"
+      - "src/turkishevalkit/static/reliability.js"
+      - "tests/test_reliability_workspace.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reliability-workspace-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reliability-workspace-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Reliability workspace backend tests
+        run: pytest -q tests/test_reliability_workspace.py
+
+      - name: Core reliability regression
+        run: |
+          pytest -q \
+            tests/test_reliability.py \
+            tests/test_reliability_edges.py \
+            tests/test_cli_reliability.py
+
+      - name: JavaScript syntax
+        run: node --check src/turkishevalkit/static/reliability.js
+
+      - name: Route and core-equivalence smoke
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+
+          from turkishevalkit.evaluation import evaluate_submission
+          from turkishevalkit.reliability import load_reliability_spec
+          from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
+          from turkishevalkit.workbench import create_app, create_workflow, save_result, save_workflow
+
+          with TemporaryDirectory() as temporary:
+              workspace = Path(temporary)
+              spec = load_reliability_spec(Path("examples/reliability-text.json"))
+              for task_index, task in enumerate(spec.tasks, start=1):
+                  for evaluator_index, submission in enumerate(task.submissions, start=1):
+                      result = evaluate_submission(submission.record, TEXT_QUALITY_RUBRIC)
+                      destination = save_result(workspace, result)
+                      save_workflow(
+                          workspace,
+                          create_workflow(
+                              artifact_id=destination.name,
+                              task_id=submission.record.task_id,
+                              session_id=f"ci-{task_index}-{evaluator_index}",
+                              evaluator_id=submission.evaluator_id,
+                          ),
+                      )
+
+              app = create_app(workspace)
+              client = app.test_client()
+              page = client.get("/reliability")
+              candidates = client.get("/api/reliability/candidates")
+              assert page.status_code == 200
+              assert candidates.status_code == 200
+              groups = candidates.get_json()["groups"]
+              assert len(groups) == 3
+              assert all(group["ready"] for group in groups)
+              response = client.post(
+                  "/api/reliability/analyze",
+                  json={
+                      "minimum_task_count": 3,
+                      "groups": [
+                          {
+                              "filenames": [
+                                  artifact["filename"] for artifact in group["artifacts"]
+                              ]
+                          }
+                          for group in groups
+                      ],
+                  },
+              )
+              assert response.status_code == 200
+              report = response.get_json()["report"]
+              assert report["task_count"] == 3
+              assert report["rubric_id"] == "tr-text-quality"
+              assert not (workspace / "reliability").exists()
+              assert not (workspace / "reliabilities").exists()
+          PY
+
+      - name: Wheel workspace assets
+        run: |
+          rm -rf /tmp/turkishevalkit-reliability-workspace-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-reliability-workspace-wheel
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(
+              Path("/tmp/turkishevalkit-reliability-workspace-wheel").glob(
+                  "turkishevalkit-*.whl"
+              )
+          )
+          required = {
+              "turkishevalkit/reliability_workspace.py",
+              "turkishevalkit/workspace_evaluations.py",
+              "turkishevalkit/templates/reliability.html",
+              "turkishevalkit/static/reliability.css",
+              "turkishevalkit/static/reliability.js",
+          }
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          missing = required - names
+          if missing:
+              raise SystemExit(f"missing reliability workspace assets: {sorted(missing)}")
+          PY
+
+      - name: Version consistency
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+          import turkishevalkit
+
+          assert turkishevalkit.__version__ == version("turkishevalkit")
+          assert turkishevalkit.__version__ == "0.13.0"
+          PY
