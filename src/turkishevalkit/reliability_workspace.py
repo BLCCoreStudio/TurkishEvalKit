@@ -59,10 +59,17 @@ def _dataset_key(item: WorkspaceEvaluation) -> str:
 
 def _group_reasons(items: Sequence[WorkspaceEvaluation]) -> tuple[str, ...]:
     reasons: list[str] = []
-    unattributed = sum(item.evaluator_id is None for item in items)
-    if unattributed:
+    invalid_attribution = sum(item.attribution_error is not None for item in items)
+    missing_attribution = sum(
+        item.evaluator_id is None and item.attribution_error is None for item in items
+    )
+    if invalid_attribution:
         reasons.append(
-            f"{unattributed} evaluation(s) have no trusted evaluator attribution"
+            f"{invalid_attribution} evaluation(s) have invalid workflow attribution"
+        )
+    if missing_attribution:
+        reasons.append(
+            f"{missing_attribution} evaluation(s) have no trusted evaluator attribution"
         )
 
     evaluator_ids = [item.evaluator_id for item in items if item.evaluator_id is not None]
@@ -144,6 +151,7 @@ def reliability_candidate_group_to_dict(
             {
                 "filename": item.filename,
                 "evaluator_id": item.evaluator_id,
+                "attribution_error": item.attribution_error,
                 "saved_at": item.saved_at,
                 "normalized_score": item.saved_result.get("normalized_score"),
                 "preference_score": item.saved_result.get("preference_score"),
@@ -180,7 +188,11 @@ def _build_task_from_filenames(
     evaluator_ids: set[str] = set()
     for filename in filenames:
         record, _ = load_saved_record(workspace, filename)
-        evaluator_id = load_evaluator_id(workspace, filename)
+        evaluator_id = load_evaluator_id(
+            workspace,
+            filename,
+            expected_task_id=record.task_id,
+        )
         if evaluator_id is None:
             raise ValueError(
                 f"{filename} has no trusted evaluator identity; create it with a workflow session"
