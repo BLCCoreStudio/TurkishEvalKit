@@ -4,11 +4,11 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Human-in-the-loop evaluation toolkit for Turkish AI text, audio, pairwise review, calibration, repeated-task reliability, immutable review workflows, and local QA operations.**
+**Human-in-the-loop evaluation toolkit for Turkish AI text, audio, pairwise review, calibration, repeated-task reliability, immutable review workflows, portable datasets, and local QA operations.**
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into inspectable local artifacts. It is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending an automated heuristic can replace the evaluator.
 
-> **Status:** alpha (`0.10.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, JSON/CLI interfaces, and localhost-only browser tools.
+> **Status:** alpha (`0.11.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, versioned evaluation-dataset interchange, JSON/JSONL/CLI interfaces, and localhost-only browser tools.
 
 ## Why this exists
 
@@ -27,6 +27,7 @@ The project separates:
 - **calibration** — agreement/disagreement on the same stimulus;
 - **disagreement exploration** — criterion/evaluator/evidence drill-down;
 - **population reliability** — repeated-task agreement statistics under explicit assumptions;
+- **interchange** — portable evaluator records without importing untrusted workflow state;
 - **interfaces** — CLI and local browser adapters over the same domain engines.
 
 ## Current capabilities
@@ -106,7 +107,7 @@ See [`docs/DISAGREEMENT_EXPLORER.md`](docs/DISAGREEMENT_EXPLORER.md).
 
 Population reliability is **not** another single-task calibration score. It analyzes a repeated-task dataset containing multiple independently rated task units.
 
-Current `0.10.x` metrics:
+Current `0.11.x` metrics:
 
 - **Krippendorff's alpha**
   - ordinal alpha for scalar `1..5` rubric criteria;
@@ -141,6 +142,21 @@ A reliability specification must declare `minimum_task_count` and the value must
 Reliability coefficients are not evaluator correctness scores and are never converted automatically into pass/fail thresholds or rankings.
 
 See [`docs/RELIABILITY.md`](docs/RELIABILITY.md) for formulas, assumptions, and interpretation boundaries.
+
+### Evaluation dataset interchange
+
+TurkishEvalKit can move evaluator-authored records between files and local workspaces without turning external process metadata into trusted workflow history.
+
+- Canonical versioned bundle schema: `turkishevalkit.evaluation-dataset@1.0`.
+- Reads one record, JSON arrays, canonical bundles, scored-result wrappers, JSONL, and NDJSON.
+- Writes canonical bundles, JSON arrays, or JSONL.
+- Revalidates every record through the existing typed parser and scalar/pairwise scoring engines.
+- Workspace export includes evaluator payloads only; workflow, revision, queue, calibration, disagreement, and reliability artifacts remain separate.
+- Workspace import uses exact-content SHA-256 deduplication.
+- `--dry-run` previews imports without writing files.
+- Imported records intentionally receive no workflow sidecar, so external evaluator/reviewer state is never silently trusted.
+
+See [`docs/INTERCHANGE.md`](docs/INTERCHANGE.md).
 
 ## Quick start
 
@@ -204,7 +220,36 @@ Write the report:
 turkisheval reliability examples/reliability-text.json --output reliability-report.json
 ```
 
-The `0.10.x` reliability surface is intentionally **core + CLI + portable JSON**. There is no separate browser statistics engine; a future browser view should call the same reliability core.
+The reliability surface is intentionally **core + CLI + portable JSON**. There is no separate browser statistics engine; a future browser view should call the same reliability core.
+
+## Dataset interchange from the CLI
+
+Convert an evaluation or dataset to the versioned canonical bundle:
+
+```bash
+turkisheval convert examples/text-evaluation.json dataset.json
+```
+
+Convert to JSONL:
+
+```bash
+turkisheval convert dataset.json dataset.jsonl --output-format jsonl
+```
+
+Export evaluator records from a workspace:
+
+```bash
+turkisheval export --workspace ./my-evaluations --output dataset.json
+```
+
+Preview and perform an import:
+
+```bash
+turkisheval import dataset.json --workspace ./other-workspace --dry-run
+turkisheval import dataset.json --workspace ./other-workspace
+```
+
+Interchange never imports external workflow/reviewer state as trusted local process history.
 
 ## Local workbench
 
@@ -301,13 +346,13 @@ Workbench-managed artifact classes remain separate:
 
 Evaluation artifacts are append-only. Workflow sidecars advance state while retaining the event chain. Revision sidecars are immutable lineage metadata. Calibration reports are append-only derived artifacts. Queue and disagreement-explorer state are read-time projections.
 
-Population reliability reports are portable CLI/library outputs in `0.10.x`; TurkishEvalKit does not create a hidden persistent reliability database.
+Population reliability reports are portable CLI/library outputs; TurkishEvalKit does not create a hidden persistent reliability database. Interchange datasets are explicit user-selected exports, not a hidden synchronization store.
 
 The local interfaces:
 
 - perform no external LLM calls;
 - have no telemetry;
-- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, disagreement evidence, calibration reports, or reliability datasets;
+- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, disagreement evidence, calibration reports, reliability datasets, or interchange datasets;
 - do not copy referenced audio into evaluation history.
 
 A local-only design is not a substitute for organizational access control. Process only material you are authorized to access and follow applicable retention/privacy requirements.
@@ -320,7 +365,8 @@ immutable evaluation r0
         ├─ workflow → queue projection → next human action
         ├─ review → accept / escalate → optional adjudication
         ├─ review → request_changes → immutable evaluation r1 → new workflow
-        └─ same-stimulus peer evaluations → calibration report → disagreement explorer
+        ├─ same-stimulus peer evaluations → calibration report → disagreement explorer
+        └─ evaluator payload ↔ explicit interchange dataset
 
 multiple independent task units
         ↓
@@ -331,7 +377,7 @@ applicability checks + reliability coefficients
 portable PopulationReliabilityReport
 ```
 
-Population reliability consumes evaluation submissions but does not rewrite evaluation, workflow, revision, queue, calibration, or disagreement artifacts.
+Population reliability consumes evaluation submissions but does not rewrite evaluation, workflow, revision, queue, calibration, or disagreement artifacts. Interchange export/import likewise preserves the trust boundary around server-owned process metadata.
 
 ## Non-goals
 
@@ -351,7 +397,9 @@ TurkishEvalKit does **not** currently:
 - turn annotation count/severity into score penalties;
 - rewrite an evaluation in place during review or revision;
 - persist queue priority or disagreement hotspot order as independent workflow truth;
-- create parallel revision branches or automatically merge competing revisions.
+- create parallel revision branches or automatically merge competing revisions;
+- import external workflow/reviewer metadata as trusted local process state;
+- synchronize workspaces through a hidden remote dataset service.
 
 These are intentional boundaries. Human judgment remains explicit and the audit trail remains inspectable.
 
@@ -388,6 +436,7 @@ src/turkishevalkit/
 ├── calibration.py             # same-stimulus multi-evaluator agreement
 ├── disagreement.py            # evidence-level calibration drill-down
 ├── reliability.py             # repeated-task population reliability
+├── interchange.py             # versioned dataset import/export boundary
 ├── calibration_dashboard.py   # calibration history/explorer adapter
 ├── workflow.py                # review/revision/adjudication lifecycle
 ├── revision.py                # immutable superseding-artifact lineage
@@ -411,6 +460,7 @@ src/turkishevalkit/
 - [`docs/CALIBRATION_DASHBOARD.md`](docs/CALIBRATION_DASHBOARD.md)
 - [`docs/DISAGREEMENT_EXPLORER.md`](docs/DISAGREEMENT_EXPLORER.md)
 - [`docs/RELIABILITY.md`](docs/RELIABILITY.md)
+- [`docs/INTERCHANGE.md`](docs/INTERCHANGE.md)
 - [`docs/WORKBENCH.md`](docs/WORKBENCH.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
@@ -418,11 +468,10 @@ src/turkishevalkit/
 
 Near-term work remains ordered around evaluator correctness rather than surface area:
 
-1. stronger import/export interoperability while preserving local-first defaults;
-2. optional rebuildable metadata indexing only when local workspace scale justifies it;
-3. an optional browser reliability workspace that reuses the `reliability.py` core instead of duplicating statistics;
-4. explicit branching semantics only if real collaborative revision use cases justify the complexity;
-5. shared audio-alignment primitives if additional evidence consumers need timestamp matching beyond calibration/explorer paths.
+1. optional rebuildable metadata indexing only when local workspace scale justifies it;
+2. an optional browser reliability workspace that reuses the `reliability.py` core instead of duplicating statistics;
+3. explicit branching semantics only if real collaborative revision use cases justify the complexity;
+4. shared audio-alignment primitives if additional evidence consumers need timestamp matching beyond calibration/explorer paths.
 
 ## License
 

@@ -1,0 +1,107 @@
+name: Evaluation Dataset Interchange
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/interchange.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/__init__.py"
+      - "src/turkishevalkit/cli.py"
+      - "src/turkishevalkit/interchange.py"
+      - "src/turkishevalkit/serialization.py"
+      - "src/turkishevalkit/evaluation.py"
+      - "src/turkishevalkit/pairwise.py"
+      - "docs/INTERCHANGE.md"
+      - "tests/test_interchange.py"
+      - "tests/test_cli_interchange.py"
+  pull_request:
+    paths:
+      - ".github/workflows/interchange.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/__init__.py"
+      - "src/turkishevalkit/cli.py"
+      - "src/turkishevalkit/interchange.py"
+      - "src/turkishevalkit/serialization.py"
+      - "src/turkishevalkit/evaluation.py"
+      - "src/turkishevalkit/pairwise.py"
+      - "docs/INTERCHANGE.md"
+      - "tests/test_interchange.py"
+      - "tests/test_cli_interchange.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: interchange-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  interchange-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Interchange tests
+        run: pytest -q tests/test_interchange.py tests/test_cli_interchange.py
+
+      - name: Public API smoke
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+
+          import turkishevalkit
+          from turkishevalkit import (
+              INTERCHANGE_SCHEMA,
+              INTERCHANGE_SCHEMA_VERSION,
+              import_workspace_file,
+              load_interchange_records,
+              render_interchange,
+          )
+
+          assert turkishevalkit.__version__ == version("turkishevalkit")
+          assert INTERCHANGE_SCHEMA == "turkishevalkit.evaluation-dataset"
+          assert INTERCHANGE_SCHEMA_VERSION == "1.0"
+          assert callable(import_workspace_file)
+          assert callable(load_interchange_records)
+          assert callable(render_interchange)
+          PY
+
+      - name: CLI surface
+        run: |
+          turkisheval convert --help
+          turkisheval export --help
+          turkisheval import --help
+
+      - name: Wheel interchange module
+        run: |
+          rm -rf /tmp/turkishevalkit-interchange-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-interchange-wheel
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(
+              Path("/tmp/turkishevalkit-interchange-wheel").glob("turkishevalkit-*.whl")
+          )
+          required = {
+              "turkishevalkit/interchange.py",
+              "turkishevalkit/cli.py",
+              "turkishevalkit/serialization.py",
+          }
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          missing = required - names
+          if missing:
+              raise SystemExit(f"missing interchange modules: {sorted(missing)}")
+          PY

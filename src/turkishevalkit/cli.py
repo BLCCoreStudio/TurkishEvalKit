@@ -14,6 +14,12 @@ from .calibration import (
     write_calibration_report,
 )
 from .evaluation import EvaluationResult, evaluate_submission
+from .interchange import (
+    export_workspace,
+    import_workspace_file,
+    load_interchange_records,
+    write_interchange_records,
+)
 from .models import EvaluationType, PairwiseEvaluationRecord, Preference
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .reliability import (
@@ -63,6 +69,22 @@ def _add_local_app_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Do not open the local browser interface automatically.",
     )
+
+
+def _add_workspace_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        help="Local TurkishEvalKit workspace. Defaults to the platform data directory.",
+    )
+
+
+def _resolved_workspace(path: Path | None) -> Path:
+    if path is not None:
+        return path
+    from .workbench import default_workspace
+
+    return default_workspace()
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -138,6 +160,61 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Print the complete population reliability report as JSON.",
+    )
+
+    convert_parser = subparsers.add_parser(
+        "convert",
+        help="Convert evaluator records between JSON bundle, array, and JSONL formats.",
+    )
+    convert_parser.add_argument("input", type=Path, help="Input evaluation dataset.")
+    convert_parser.add_argument("output", type=Path, help="Destination dataset path.")
+    convert_parser.add_argument(
+        "--input-format",
+        choices=("auto", "json", "jsonl"),
+        default="auto",
+        help="Input format (default: infer JSON/JSONL).",
+    )
+    convert_parser.add_argument(
+        "--output-format",
+        choices=("bundle", "array", "jsonl"),
+        default="bundle",
+        help="Output format (default: bundle).",
+    )
+
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Export evaluator-authored records from a local workspace.",
+    )
+    _add_workspace_argument(export_parser)
+    export_parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Destination dataset path.",
+    )
+    export_parser.add_argument(
+        "--format",
+        choices=("bundle", "array", "jsonl"),
+        default="bundle",
+        help="Export format (default: bundle).",
+    )
+
+    import_parser = subparsers.add_parser(
+        "import",
+        help="Import evaluator records into a workspace without trusting workflow metadata.",
+    )
+    import_parser.add_argument("input", type=Path, help="Input evaluation dataset.")
+    _add_workspace_argument(import_parser)
+    import_parser.add_argument(
+        "--input-format",
+        choices=("auto", "json", "jsonl"),
+        default="auto",
+        help="Input format (default: infer JSON/JSONL).",
+    )
+    import_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate and report import actions without writing artifacts.",
     )
 
     workbench_parser = subparsers.add_parser(
@@ -304,6 +381,53 @@ def main(argv: Sequence[str] | None = None) -> int:
                 icc = reliability_report.aggregate_score_icc_a1.value
                 assert icc is not None
                 print(f"aggregate ICC(A,1)={icc:.4f}")
+        return 0
+
+    if args.command == "convert":
+        try:
+            records = load_interchange_records(
+                args.input,
+                input_format=args.input_format,
+            )
+            write_interchange_records(
+                args.output,
+                records,
+                output_format=args.output_format,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            parser.exit(2, f"error: {exc}\n")
+        print(
+            f"converted {len(records)} record(s) to {args.output_format}: {args.output}"
+        )
+        return 0
+
+    if args.command == "export":
+        try:
+            count = export_workspace(
+                _resolved_workspace(args.workspace),
+                args.output,
+                output_format=args.format,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            parser.exit(2, f"error: {exc}\n")
+        print(f"exported {count} record(s) as {args.format}: {args.output}")
+        return 0
+
+    if args.command == "import":
+        try:
+            import_summary = import_workspace_file(
+                _resolved_workspace(args.workspace),
+                args.input,
+                input_format=args.input_format,
+                dry_run=args.dry_run,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            parser.exit(2, f"error: {exc}\n")
+        prefix = "would import" if import_summary.dry_run else "imported"
+        print(
+            f"{prefix} {import_summary.imported_count}/{import_summary.total_records} record(s) · "
+            f"{import_summary.duplicate_count} duplicate(s)"
+        )
         return 0
 
     if args.command == "workbench":
