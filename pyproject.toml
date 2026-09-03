@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turkishevalkit"
-version = "0.12.0"
+version = "0.13.0"
 description = "Human-in-the-loop Turkish AI evaluation workbench with portable datasets, rebuildable metadata indexing, reliability, review queues, calibration, and audio QA."
 readme = "README.md"
 requires-python = ">=3.11"
