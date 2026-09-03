@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 import turkishevalkit.workbench as workbench
 from turkishevalkit.evaluation import evaluate_submission
@@ -49,6 +52,22 @@ def test_rebuild_creates_fresh_equivalent_history_snapshot(tmp_path: Path) -> No
     assert workbench.list_history(tmp_path) == canonical
 
 
+def test_fresh_index_avoids_canonical_history_scan(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _save_text_result(tmp_path)
+    canonical = workbench.scan_history(tmp_path)
+    rebuild_metadata_index(tmp_path, canonical)
+
+    def fail_scan(_workspace: Path) -> list[dict[str, object]]:
+        raise AssertionError("fresh metadata index should avoid canonical JSON history scan")
+
+    monkeypatch.setattr(workbench, "scan_history", fail_scan)
+
+    assert workbench.list_history(tmp_path) == canonical
+
+
 def test_source_change_marks_index_stale_and_history_falls_back(tmp_path: Path) -> None:
     _save_text_result(tmp_path)
     rebuild_metadata_index(tmp_path, workbench.scan_history(tmp_path))
@@ -80,6 +99,27 @@ def test_workflow_change_marks_index_stale(tmp_path: Path) -> None:
     assert metadata_index_status(tmp_path).state is MetadataIndexState.STALE
     history = workbench.list_history(tmp_path)
     assert history[0]["workflow_state"] == "submitted"
+
+
+def test_schema_mismatch_is_stale_and_never_read_as_history(tmp_path: Path) -> None:
+    _save_text_result(tmp_path)
+    canonical = workbench.scan_history(tmp_path)
+    rebuild_metadata_index(tmp_path, canonical)
+    path = metadata_index_path(tmp_path)
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "UPDATE metadata SET value = ? WHERE key = 'schema_version'",
+            (str(METADATA_INDEX_SCHEMA_VERSION + 1),),
+        )
+        connection.commit()
+
+    status = metadata_index_status(tmp_path)
+
+    assert status.state is MetadataIndexState.STALE
+    assert status.schema_version == METADATA_INDEX_SCHEMA_VERSION + 1
+    assert load_indexed_history(tmp_path) is None
+    assert workbench.list_history(tmp_path) == canonical
 
 
 def test_corrupt_index_never_hides_canonical_history(tmp_path: Path) -> None:
