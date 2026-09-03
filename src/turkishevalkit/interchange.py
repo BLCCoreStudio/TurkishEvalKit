@@ -354,7 +354,7 @@ def import_workspace_records(
     directory.mkdir(parents=True, exist_ok=True)
     created: list[Path] = []
     try:
-        for (record, result, digest), destination in zip(
+        for (_record, result, digest), destination in zip(
             pending,
             planned_paths,
             strict=True,
