@@ -105,13 +105,16 @@ def compatibility_key(raw_record: dict[str, Any]) -> str:
 
 
 def load_workspace_evaluation(workspace: Path, path: Path) -> WorkspaceEvaluation:
-    """Load one evaluation path plus trusted attribution without mutating the workspace."""
+    """Load one evaluation path plus best-effort trusted local attribution."""
 
     record, saved_result = load_saved_record(workspace, path.name)
     raw_record = saved_result.get("payload")
     if not isinstance(raw_record, dict):
         raise ValueError("evaluation artifact does not contain a valid payload record")
-    evaluator_id = load_evaluator_id(workspace, path.name)
+    try:
+        evaluator_id = load_evaluator_id(workspace, path.name)
+    except (OSError, TypeError, ValueError):
+        evaluator_id = None
     saved_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat()
     return WorkspaceEvaluation(
         filename=path.name,
@@ -124,7 +127,7 @@ def load_workspace_evaluation(workspace: Path, path: Path) -> WorkspaceEvaluatio
 
 
 def list_workspace_evaluations(workspace: Path) -> list[WorkspaceEvaluation]:
-    """Return readable saved evaluations newest first while isolating corrupt artifacts."""
+    """Return readable saved evaluations newest first while isolating corrupt records."""
 
     directory = evaluation_dir(workspace)
     if not directory.exists():
