@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import sqlite3
 from collections.abc import Sequence
+from contextlib import closing
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -65,9 +66,13 @@ def workspace_metadata_fingerprint(workspace: Path) -> tuple[str, int]:
 
     resolved = workspace.expanduser().resolve()
     digest = hashlib.sha256()
-    files = _tracked_files(resolved)
-    for path in files:
-        stat = path.stat()
+    source_file_count = 0
+    for path in _tracked_files(resolved):
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            continue
+        source_file_count += 1
         relative = path.relative_to(resolved).as_posix()
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
@@ -75,16 +80,24 @@ def workspace_metadata_fingerprint(workspace: Path) -> tuple[str, int]:
         digest.update(b"\0")
         digest.update(str(stat.st_mtime_ns).encode("ascii"))
         digest.update(b"\n")
-    return digest.hexdigest(), len(files)
+    return digest.hexdigest(), source_file_count
 
 
 def _connect_read_only(path: Path) -> sqlite3.Connection:
-    return sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+    uri = f"{path.resolve().as_uri()}?mode=ro"
+    return sqlite3.connect(uri, uri=True)
 
 
 def _metadata(connection: sqlite3.Connection) -> dict[str, str]:
     rows = connection.execute("SELECT key, value FROM metadata").fetchall()
     return {str(key): str(value) for key, value in rows}
+
+
+def _history_count(connection: sqlite3.Connection) -> int:
+    row = connection.execute("SELECT COUNT(*) FROM history").fetchone()
+    if row is None:
+        raise sqlite3.DatabaseError("metadata index history count is unavailable")
+    return int(row[0])
 
 
 def _status_from_connection(
@@ -98,22 +111,20 @@ def _status_from_connection(
         schema_version = int(raw_schema) if raw_schema is not None else None
     except ValueError:
         schema_version = None
-    record_count = int(connection.execute("SELECT COUNT(*) FROM history").fetchone()[0])
     current_fingerprint, source_file_count = workspace_metadata_fingerprint(workspace)
 
     if schema_version != METADATA_INDEX_SCHEMA_VERSION:
         return MetadataIndexStatus(
             state=MetadataIndexState.STALE,
             path=str(path),
-            record_count=record_count,
+            record_count=0,
             source_file_count=source_file_count,
             schema_version=schema_version,
             built_at=metadata.get("built_at"),
-            reason=(
-                "metadata index schema version does not match the current reader"
-            ),
+            reason="metadata index schema version does not match the current reader",
         )
 
+    record_count = _history_count(connection)
     if metadata.get("source_fingerprint") != current_fingerprint:
         return MetadataIndexStatus(
             state=MetadataIndexState.STALE,
@@ -152,7 +163,7 @@ def metadata_index_status(workspace: Path) -> MetadataIndexStatus:
         )
 
     try:
-        with _connect_read_only(path) as connection:
+        with closing(_connect_read_only(path)) as connection:
             return _status_from_connection(workspace, path, connection)
     except (OSError, sqlite3.DatabaseError, ValueError) as exc:
         _, source_file_count = workspace_metadata_fingerprint(workspace)
@@ -263,7 +274,7 @@ def rebuild_metadata_index(
     built_at = datetime.now(UTC).isoformat()
 
     try:
-        with sqlite3.connect(temporary) as connection:
+        with closing(sqlite3.connect(temporary)) as connection:
             _initialize_schema(connection)
             connection.executemany(
                 """
@@ -329,7 +340,7 @@ def load_indexed_history(workspace: Path) -> list[dict[str, Any]] | None:
         return None
 
     try:
-        with _connect_read_only(path) as connection:
+        with closing(_connect_read_only(path)) as connection:
             status = _status_from_connection(workspace, path, connection)
             if status.state is not MetadataIndexState.FRESH:
                 return None
@@ -392,14 +403,17 @@ def clear_metadata_index(workspace: Path) -> bool:
     """Delete only rebuildable index files and leave canonical artifacts untouched."""
 
     path = metadata_index_path(workspace)
+    temporary = path.with_suffix(path.suffix + ".tmp")
     removed = False
     for candidate in (
         path,
         Path(f"{path}-journal"),
         Path(f"{path}-wal"),
         Path(f"{path}-shm"),
-        path.with_suffix(path.suffix + ".tmp"),
-        Path(f"{path.with_suffix(path.suffix + '.tmp')}-journal"),
+        temporary,
+        Path(f"{temporary}-journal"),
+        Path(f"{temporary}-wal"),
+        Path(f"{temporary}-shm"),
     ):
         if candidate.exists():
             candidate.unlink()
