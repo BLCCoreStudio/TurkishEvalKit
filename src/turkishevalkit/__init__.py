@@ -20,6 +20,21 @@ from .disagreement import (
     build_disagreement_report,
 )
 from .evaluation import evaluate_submission
+from .interchange import (
+    INTERCHANGE_SCHEMA,
+    INTERCHANGE_SCHEMA_VERSION,
+    WorkspaceImportSummary,
+    export_workspace,
+    import_workspace_file,
+    import_workspace_records,
+    interchange_payload,
+    load_interchange_records,
+    load_workspace_records,
+    parse_interchange_text,
+    record_digest,
+    render_interchange,
+    write_interchange_records,
+)
 from .models import (
     AudioAnnotation,
     AudioIssueCategory,
@@ -60,6 +75,8 @@ from .workflow import (
 
 __all__ = [
     "AUDIO_QUALITY_RUBRIC",
+    "INTERCHANGE_SCHEMA",
+    "INTERCHANGE_SCHEMA_VERSION",
     "PAIRWISE_QUALITY_RUBRIC",
     "TEXT_QUALITY_RUBRIC",
     "ActorRole",
@@ -100,6 +117,7 @@ __all__ = [
     "WorkflowEvent",
     "WorkflowEventKind",
     "WorkflowState",
+    "WorkspaceImportSummary",
     "adjudicate_workflow",
     "build_calibration_report",
     "build_disagreement_report",
@@ -107,8 +125,18 @@ __all__ = [
     "create_workflow",
     "evaluate_pairwise_submission",
     "evaluate_submission",
+    "export_workspace",
+    "import_workspace_file",
+    "import_workspace_records",
+    "interchange_payload",
+    "load_interchange_records",
+    "load_workspace_records",
+    "parse_interchange_text",
+    "record_digest",
+    "render_interchange",
     "review_workflow",
     "submit_workflow",
+    "write_interchange_records",
 ]
 
 __version__ = "0.10.0"
