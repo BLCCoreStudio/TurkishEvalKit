@@ -9,14 +9,9 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, TypeAlias
 
+from .audio_alignment import match_audio_annotations
 from .evaluation import EvaluationResult, evaluate_submission
-from .models import (
-    AudioAnnotation,
-    EvaluationRecord,
-    EvaluationType,
-    PairwiseEvaluationRecord,
-    Rubric,
-)
+from .models import EvaluationRecord, EvaluationType, PairwiseEvaluationRecord, Rubric
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .serialization import record_from_dict
 
@@ -209,77 +204,6 @@ def _pairwise_criterion_agreement(
     return agreement, pair_matches
 
 
-def _distance_to_interval(point_ms: int, start_ms: int, end_ms: int) -> int:
-    if start_ms <= point_ms <= end_ms:
-        return 0
-    return min(abs(point_ms - start_ms), abs(point_ms - end_ms))
-
-
-def _annotation_temporal_similarity(
-    left: AudioAnnotation,
-    right: AudioAnnotation,
-    tolerance_ms: int,
-) -> float | None:
-    if left.category is not right.category:
-        return None
-
-    left_point = left.start_ms == left.end_ms
-    right_point = right.start_ms == right.end_ms
-
-    if left_point and right_point:
-        distance = abs(left.start_ms - right.start_ms)
-        if distance > tolerance_ms:
-            return None
-        return max(0.0, 1.0 - (distance / (tolerance_ms + 1)))
-
-    if left_point != right_point:
-        point = left if left_point else right
-        interval = right if left_point else left
-        distance = _distance_to_interval(point.start_ms, interval.start_ms, interval.end_ms)
-        if distance > tolerance_ms:
-            return None
-        return max(0.0, 1.0 - (distance / (tolerance_ms + 1)))
-
-    overlap = max(0, min(left.end_ms, right.end_ms) - max(left.start_ms, right.start_ms))
-    if overlap > 0:
-        union = max(left.end_ms, right.end_ms) - min(left.start_ms, right.start_ms)
-        return overlap / union
-
-    gap = max(left.start_ms, right.start_ms) - min(left.end_ms, right.end_ms)
-    if gap > tolerance_ms:
-        return None
-    return 0.25 * max(0.0, 1.0 - (gap / (tolerance_ms + 1)))
-
-
-def _match_audio_annotations(
-    left: tuple[AudioAnnotation, ...],
-    right: tuple[AudioAnnotation, ...],
-    tolerance_ms: int,
-) -> tuple[tuple[int, int, float], ...]:
-    candidates: list[tuple[float, int, int]] = []
-    for left_index, left_annotation in enumerate(left):
-        for right_index, right_annotation in enumerate(right):
-            similarity = _annotation_temporal_similarity(
-                left_annotation,
-                right_annotation,
-                tolerance_ms,
-            )
-            if similarity is not None:
-                candidates.append((similarity, left_index, right_index))
-
-    candidates.sort(key=lambda item: (-item[0], item[1], item[2]))
-    used_left: set[int] = set()
-    used_right: set[int] = set()
-    matches: list[tuple[int, int, float]] = []
-    for similarity, left_index, right_index in candidates:
-        if left_index in used_left or right_index in used_right:
-            continue
-        used_left.add(left_index)
-        used_right.add(right_index)
-        matches.append((left_index, right_index, similarity))
-    return tuple(matches)
-
-
 def _audio_annotation_agreement(
     submissions: tuple[EvaluatorSubmission, ...],
     tolerance_ms: int,
@@ -299,16 +223,16 @@ def _audio_annotation_agreement(
 
         left = left_record.audio_annotations
         right = right_record.audio_annotations
-        matches = _match_audio_annotations(left, right, tolerance_ms)
+        matches = match_audio_annotations(left, right, tolerance_ms)
         matched_count = len(matches)
         denominator = len(left) + len(right)
         f1 = 1.0 if denominator == 0 else (2.0 * matched_count) / denominator
 
         pair_severity_matches = sum(
-            left[left_index].severity is right[right_index].severity
-            for left_index, right_index, _ in matches
+            left[match.left_index].severity is right[match.right_index].severity
+            for match in matches
         )
-        pair_similarities = [similarity for _, _, similarity in matches]
+        pair_similarities = [match.temporal_similarity for match in matches]
 
         severity_matches += pair_severity_matches
         matched_total += matched_count
