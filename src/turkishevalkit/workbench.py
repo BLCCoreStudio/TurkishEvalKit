@@ -1,4 +1,4 @@
-"""Local browser workbench backed by evaluation, review, revision, calibration, and reliability cores."""
+"""Local browser workbench for evaluation, review, calibration, and reliability."""
 
 from __future__ import annotations
 
