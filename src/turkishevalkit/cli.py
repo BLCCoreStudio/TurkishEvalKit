@@ -25,6 +25,7 @@ from .metadata_index import (
     metadata_index_status,
     metadata_index_status_to_dict,
     rebuild_metadata_index,
+    workspace_metadata_fingerprint,
 )
 from .models import EvaluationType, PairwiseEvaluationRecord, Preference
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
@@ -490,8 +491,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             try:
                 from .workbench import scan_history
 
+                fingerprint, source_file_count = workspace_metadata_fingerprint(workspace)
                 entries = scan_history(workspace)
-                status = rebuild_metadata_index(workspace, entries)
+                status = rebuild_metadata_index(
+                    workspace,
+                    entries,
+                    expected_source_fingerprint=fingerprint,
+                    expected_source_file_count=source_file_count,
+                )
             except (OSError, TypeError, ValueError) as exc:
                 parser.exit(2, f"error: {exc}\n")
             print(
