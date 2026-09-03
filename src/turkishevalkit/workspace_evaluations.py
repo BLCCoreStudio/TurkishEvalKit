@@ -20,6 +20,7 @@ class WorkspaceEvaluation:
     record: SubmissionRecord
     saved_result: dict[str, Any]
     evaluator_id: str | None
+    attribution_error: str | None
     compatibility_key: str
     saved_at: str
 
@@ -69,8 +70,13 @@ def load_saved_record(
     return record_from_dict(raw_record), saved_result
 
 
-def load_evaluator_id(workspace: Path, artifact_id: str) -> str | None:
-    """Read evaluator identity only from a valid local workflow sidecar."""
+def load_evaluator_id(
+    workspace: Path,
+    artifact_id: str,
+    *,
+    expected_task_id: str | None = None,
+) -> str | None:
+    """Read evaluator identity only from a valid matching local workflow sidecar."""
 
     if not valid_json_artifact_id(artifact_id):
         raise FileNotFoundError(artifact_id)
@@ -81,6 +87,8 @@ def load_evaluator_id(workspace: Path, artifact_id: str) -> str | None:
     workflow = workflow_from_dict(load_json_object(path, label="workflow artifact"))
     if workflow.artifact_id != artifact_id:
         raise ValueError("workflow artifact id does not match evaluation filename")
+    if expected_task_id is not None and workflow.task_id != expected_task_id:
+        raise ValueError("workflow task_id does not match evaluation task_id")
     evaluator_id = workflow.session.evaluator_id.strip()
     return evaluator_id or None
 
@@ -105,29 +113,39 @@ def compatibility_key(raw_record: dict[str, Any]) -> str:
 
 
 def load_workspace_evaluation(workspace: Path, path: Path) -> WorkspaceEvaluation:
-    """Load one evaluation path plus best-effort trusted local attribution."""
+    """Load one evaluation plus best-effort trusted attribution without mutating state."""
 
     record, saved_result = load_saved_record(workspace, path.name)
     raw_record = saved_result.get("payload")
     if not isinstance(raw_record, dict):
         raise ValueError("evaluation artifact does not contain a valid payload record")
+
+    evaluator_id: str | None
+    attribution_error: str | None = None
     try:
-        evaluator_id = load_evaluator_id(workspace, path.name)
-    except (OSError, TypeError, ValueError):
+        evaluator_id = load_evaluator_id(
+            workspace,
+            path.name,
+            expected_task_id=record.task_id,
+        )
+    except (OSError, TypeError, ValueError) as exc:
         evaluator_id = None
+        attribution_error = str(exc)
+
     saved_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat()
     return WorkspaceEvaluation(
         filename=path.name,
         record=record,
         saved_result=saved_result,
         evaluator_id=evaluator_id,
+        attribution_error=attribution_error,
         compatibility_key=compatibility_key(raw_record),
         saved_at=saved_at,
     )
 
 
 def list_workspace_evaluations(workspace: Path) -> list[WorkspaceEvaluation]:
-    """Return readable saved evaluations newest first while isolating corrupt records."""
+    """Return readable saved evaluations newest first while isolating corrupt evaluations."""
 
     directory = evaluation_dir(workspace)
     if not directory.exists():
