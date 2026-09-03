@@ -1,21 +1,22 @@
 # Architecture
 
-TurkishEvalKit separates human judgment, deterministic scoring, trusted process state, immutable revision lineage, operational projections, same-stimulus calibration, disagreement exploration, repeated-task reliability, dataset interchange, and browser adapters.
+TurkishEvalKit separates human judgment, deterministic scoring, trusted process state, immutable revision lineage, operational projections, same-stimulus calibration, disagreement exploration, repeated-task reliability, dataset interchange, optional rebuildable metadata indexing, and browser adapters.
 
-A later review, revision, adjudication, queue query, calibration, disagreement drill-down, reliability analysis, export, or import must not silently rewrite an evaluator's earlier evidence.
+A later review, revision, adjudication, queue query, calibration, disagreement drill-down, reliability analysis, export, import, or index rebuild must not silently rewrite an evaluator's earlier evidence.
 
 ## Design goals
 
 1. **Human authority** — the core records and validates evaluator judgments rather than replacing them.
 2. **Reproducibility** — stored results identify the exact rubric ID/version used.
-3. **Auditability** — scoring, localized evidence, workflow transitions, revision parentage, agreement metrics, reliability assumptions, and interchange boundaries are explicit.
+3. **Auditability** — scoring, localized evidence, workflow transitions, revision parentage, agreement metrics, reliability assumptions, interchange boundaries, and cache freshness are explicit.
 4. **Artifact immutability** — evaluation artifacts are append-only; corrections become new artifacts.
 5. **Portable records** — UTF-8 JSON is the canonical local artifact format and the evaluation-dataset interchange schema is versioned independently.
-6. **Interface independence** — CLI and browser flows use the same domain engines.
-7. **Server-owned process metadata** — workflow, reviewer, adjudicator, and revision relationships are not trusted from evaluator payloads or imported datasets.
-8. **Derived operational views** — queue priority/filter state and disagreement hotspot state are computed rather than stored as new truth.
-9. **Applicability-aware statistics** — a reliability coefficient is emitted only when its documented design assumptions are satisfied.
-10. **Local-first operation** — browser tools bind to loopback and require no remote service, CDN, telemetry, or external AI service.
+6. **Disposable acceleration** — optional indexes may accelerate reads but never become authoritative state.
+7. **Interface independence** — CLI and browser flows use the same domain engines.
+8. **Server-owned process metadata** — workflow, reviewer, adjudicator, and revision relationships are not trusted from evaluator payloads or imported datasets.
+9. **Derived operational views** — queue priority/filter state and disagreement hotspot state are computed rather than stored as new truth.
+10. **Applicability-aware statistics** — a reliability coefficient is emitted only when its documented design assumptions are satisfied.
+11. **Local-first operation** — browser tools bind to loopback and require no remote service, CDN, telemetry, or external AI service.
 
 ## Package layers
 
@@ -63,7 +64,7 @@ The module can read:
 
 It can write canonical bundles, JSON arrays, and JSONL. Every record is reconstructed through `serialization.py` and revalidated through the existing scalar or pairwise scoring engine before conversion or workspace import.
 
-Workspace export extracts evaluator-authored payloads from saved evaluation artifacts. It does not export workflow, reviewer/adjudicator transitions, revision lineage, queue state, calibration artifacts, disagreement projections, or reliability reports as part of the evaluation-dataset schema.
+Workspace export extracts evaluator-authored payloads from saved evaluation artifacts. It does not export workflow, reviewer/adjudicator transitions, revision lineage, queue state, calibration artifacts, disagreement projections, reliability reports, or metadata-index cache state as part of the evaluation-dataset schema.
 
 Workspace import:
 
@@ -76,9 +77,52 @@ Workspace import:
 
 Exact-content deduplication is not semantic equivalence detection. External workflow/reviewer/session metadata is never promoted into trusted local process history by this layer.
 
+### `metadata_index.py`
+
+Owns the optional disposable SQLite history cache introduced in `0.12.x`.
+
+The index lives at:
+
+```text
+<workspace>/indexes/metadata.sqlite3
+```
+
+It stores the already-derived history projection plus indexed columns for common operational dimensions such as task, evaluation type, rubric, evaluator, workflow state, and saved time.
+
+The cache is never created automatically. `turkisheval index rebuild` starts from `workbench.scan_history()`, writes a new SQLite database to a temporary sibling file, and atomically replaces the previous cache only after the rebuild succeeds.
+
+Freshness is established by a SHA-256 digest over cheap canonical-source metadata:
+
+```text
+relative path + file size + mtime_ns
+```
+
+for:
+
+- `evaluations/*.json`;
+- `workflows/*.workflow.json`;
+- `revisions/*.revision.json`.
+
+This avoids reparsing JSON just to determine whether a cached projection can be reused.
+
+The observable states are:
+
+```text
+absent
+fresh
+stale
+corrupt
+```
+
+Only `fresh` indexes are read. `absent`, `stale`, or `corrupt` states fall back to canonical artifact scanning.
+
+The index schema has an independent integer version (`METADATA_INDEX_SCHEMA_VERSION`). An incompatible schema is treated as stale rather than migrated implicitly.
+
+The metadata index is not allowed to establish workflow state, evaluator identity, revision parentage, or artifact existence. It cannot repair canonical files and may be deleted at any time.
+
 ### `workflow.py`
 
-Defines lifecycle independently of scoring, revision payloads, queue projection, calibration, reliability, and interchange.
+Defines lifecycle independently of scoring, revision payloads, queue projection, calibration, reliability, interchange, and indexing.
 
 The normal terminal paths are:
 
@@ -191,7 +235,7 @@ assumptions[]
 
 If assumptions fail, TurkishEvalKit returns `applicable=false` and a reason rather than coercing the dataset. Negative coefficients are preserved rather than clipped.
 
-The reliability layer is read-only with respect to project artifacts. It does not mutate evaluations, workflows, revisions, calibrations, queue state, disagreement projections, or interchange datasets.
+The reliability layer is read-only with respect to project artifacts. It does not mutate evaluations, workflows, revisions, calibrations, queue state, disagreement projections, interchange datasets, or metadata indexes.
 
 ### `calibration_dashboard.py`
 
@@ -226,6 +270,8 @@ Default action priority is operational only; it is never interpreted as a qualit
 
 Imported evaluation records without trusted workflow sidecars naturally appear as `untracked`; interchange does not synthesize attribution to change this state.
 
+The queue consumes `workbench.list_history()`. When a fresh optional metadata index exists, the queue receives the indexed projection; when it does not, the same function falls back to canonical JSON scanning.
+
 ### `review_queue_app.py`
 
 Adds `/queue` and `/api/review-queue` to an ordinary workbench application and exposes a queue-first launcher.
@@ -241,6 +287,11 @@ The browser can therefore trigger legitimate workflow actions from the queue wit
 ### `workbench.py`
 
 Localhost Flask adapter for evaluation creation, workflow transitions, revision persistence, history, and calibration-dashboard mounting.
+
+History is split into two paths:
+
+- `scan_history()` — canonical JSON derivation and the source used for index rebuilds;
+- `list_history()` — uses a fresh metadata index when available, otherwise delegates to `scan_history()`.
 
 For revision creation the server verifies that:
 
@@ -266,17 +317,20 @@ reliability
 convert
 export
 import
+index status
+index rebuild
+index clear
 workbench
 queue
 ```
 
-It contains no alternative scoring, reliability, revision, queue-state, agreement, or interchange-validation semantics.
+It contains no alternative scoring, reliability, revision, queue-state, agreement, interchange-validation, or metadata-derivation semantics.
 
 ### `templates/` and `static/`
 
 Browser code is an adapter, not a correctness boundary. The Python server repeats workflow, identity, filtering, and persistence validation.
 
-Population reliability still has no separate browser statistics engine in `0.11.x`; a future UI should invoke `reliability.py` rather than duplicate its formulas.
+Population reliability still has no separate browser statistics engine in `0.12.x`; a future UI should invoke `reliability.py` rather than duplicate its formulas.
 
 ## Evaluation boundary
 
@@ -325,6 +379,33 @@ workspace/evaluations/*.json
 
 The portable dataset carries evaluator-authored records, not trusted local process history. Interchange never turns externally supplied workflow/reviewer metadata into authoritative state.
 
+## Metadata-index boundary
+
+```text
+evaluations/*.json + workflows/*.workflow.json + revisions/*.revision.json
+                                  ↓
+                      canonical scan_history()
+                                  ↓
+                      derived history metadata
+                                  ↓
+                      explicit index rebuild
+                                  ↓
+                 indexes/metadata.sqlite3
+                         (disposable)
+                                  ↓
+                     schema + fingerprint
+                         ┌────────┴────────┐
+                      fresh          stale/corrupt
+                        ↓                  ↓
+                 indexed history     canonical scan
+                        ↓                  ↓
+                        └────── list_history() ──────┘
+                                      ↓
+                                 review queue
+```
+
+Index content is a cache. Canonical files invalidate it; index content cannot repair or override canonical files.
+
 ## Review and revision boundary
 
 ```text
@@ -352,7 +433,7 @@ The child artifact does not replace the parent on disk. The relationship is expl
 ## Review queue boundary
 
 ```text
-evaluation history + workflow summaries + revision summaries
+canonical or fresh-index history projection
                          ↓
                 derive action state
                          ↓
@@ -438,8 +519,10 @@ For calibration, annotations match only under explicit category and temporal rul
 │   └── <task>-<timestamp>.workflow.json
 ├── revisions/
 │   └── <task>-<timestamp>.revision.json
-└── calibrations/
-    └── <task>-<timestamp>.calibration.json
+├── calibrations/
+│   └── <task>-<timestamp>.calibration.json
+└── indexes/
+    └── metadata.sqlite3
 ```
 
 ### Evaluation artifacts
@@ -460,7 +543,7 @@ Append-only derived agreement reports referencing explicit source evaluation fil
 
 ### Review queue and disagreement explorer
 
-No additional persistent artifact classes. Both are derived views over persisted data.
+No additional authoritative artifact classes. Both are derived views over persisted data.
 
 ### Population reliability
 
@@ -469,6 +552,10 @@ Reliability reports are library/CLI outputs. No hidden workspace database, evalu
 ### Interchange datasets
 
 Interchange datasets are explicit user-selected files outside hidden workspace state. Exporting one makes evaluator-authored source/metadata portable but does not change the workspace's workflow or revision history.
+
+### Metadata index
+
+`indexes/metadata.sqlite3` is optional cache state. It is explicitly rebuildable and safe to remove. Its absence does not reduce correctness; it only removes the accelerated history path.
 
 ## Score and statistic semantics
 
@@ -500,6 +587,10 @@ Queue priority is an operational ordering, not a score.
 
 The SHA-256 digest used by import is an exact-content identity key for canonical evaluator-record JSON. It is not a quality score, semantic fingerprint, or proof that two different records express the same judgment.
 
+### Metadata-index fingerprint
+
+The SHA-256 metadata-index fingerprint covers relative paths, sizes, and nanosecond modification times of canonical history source files. It is a cache-freshness signal, not a content-integrity signature or semantic identity.
+
 ## Failure and trust model
 
 - Browser controls are convenience only; server validation is authoritative.
@@ -512,6 +603,10 @@ The SHA-256 digest used by import is an exact-content identity key for canonical
 - Child revision creation never uses the parent evaluation as rollback scratch space.
 - Interchange input is fully parsed and scored before workspace writes begin; newly created final artifacts are rolled back when a later persistence error occurs.
 - Exact-content import deduplication does not attempt fuzzy/semantic equivalence.
+- A metadata index is used only when its schema and canonical-source fingerprint match.
+- Missing, stale, or corrupt metadata indexes fall back to canonical scanning instead of failing history/queue reads.
+- Index rebuilds start from canonical history and atomically replace the previous cache only after success.
+- An external tool that changes canonical content while deliberately preserving both file size and `mtime_ns` can evade the cheap metadata fingerprint; such environments should rebuild/clear the cache after external rewrites.
 - Reliability metric assumptions are explicit; unsupported dataset designs produce `applicable=false` instead of fabricated coefficients.
 - The declared reliability `minimum_task_count` is not interpreted as a universal power/sufficiency guarantee.
 - Negative reliability coefficients are preserved rather than clipped.
@@ -527,6 +622,8 @@ For that schema:
 - required-field removal, structural incompatibility, or semantic reinterpretation requires an explicit migration/versioning path;
 - unsupported future schema versions are rejected rather than guessed or silently migrated;
 - `record_count` must agree with the number of records in a canonical bundle.
+
+The metadata index has a separate cache schema version. Because it is disposable, incompatible versions are treated as stale and should be rebuilt rather than migrated as authoritative state.
 
 Other internal persistence surfaces remain governed by their own compatibility rules:
 
@@ -548,7 +645,9 @@ TurkishEvalKit currently does not:
 - resolve evaluator disagreements automatically;
 - rank evaluators or define universal calibration/reliability thresholds;
 - infer statistical sufficiency from task count alone;
-- persist a database-backed queue/index layer;
+- use the SQLite metadata index as an authoritative database or remote synchronization layer;
+- incrementally maintain the metadata index after every canonical write;
+- full-content-hash all canonical history files on every indexed read;
 - create parallel revision branches or merge competing revisions;
 - edit previous evaluation artifacts in place;
 - import workflow/reviewer/revision history from interchange datasets as trusted state;
@@ -556,4 +655,4 @@ TurkishEvalKit currently does not:
 - synchronize workspaces through a remote service;
 - provide a separate browser reliability dashboard.
 
-See [`REVISION_WORKFLOW.md`](REVISION_WORKFLOW.md), [`REVIEW_QUEUE.md`](REVIEW_QUEUE.md), [`REVIEW_WORKFLOW.md`](REVIEW_WORKFLOW.md), [`CALIBRATION.md`](CALIBRATION.md), [`CALIBRATION_DASHBOARD.md`](CALIBRATION_DASHBOARD.md), [`DISAGREEMENT_EXPLORER.md`](DISAGREEMENT_EXPLORER.md), [`RELIABILITY.md`](RELIABILITY.md), [`INTERCHANGE.md`](INTERCHANGE.md), and [`AUDIO_ANNOTATIONS.md`](AUDIO_ANNOTATIONS.md) for domain-specific semantics.
+See [`REVISION_WORKFLOW.md`](REVISION_WORKFLOW.md), [`REVIEW_QUEUE.md`](REVIEW_QUEUE.md), [`REVIEW_WORKFLOW.md`](REVIEW_WORKFLOW.md), [`CALIBRATION.md`](CALIBRATION.md), [`CALIBRATION_DASHBOARD.md`](CALIBRATION_DASHBOARD.md), [`DISAGREEMENT_EXPLORER.md`](DISAGREEMENT_EXPLORER.md), [`RELIABILITY.md`](RELIABILITY.md), [`INTERCHANGE.md`](INTERCHANGE.md), [`METADATA_INDEX.md`](METADATA_INDEX.md), and [`AUDIO_ANNOTATIONS.md`](AUDIO_ANNOTATIONS.md) for domain-specific semantics.
