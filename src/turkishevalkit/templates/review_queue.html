@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="dark">
   <title>TurkishEvalKit Review Queue</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='workbench.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='navigation.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='review_queue.css') }}">
   <script defer src="{{ url_for('static', filename='review_queue.js') }}"></script>
 </head>
@@ -22,6 +23,7 @@
       <div class="topbar-actions">
         <a class="text-button" href="/">Workbench</a>
         <a class="text-button" href="/calibration">Calibration</a>
+        <a class="text-button" href="/reliability">Reliability</a>
         <div class="local-pill" title="The server listens on localhost only">
           <span class="status-dot" aria-hidden="true"></span>
           Local-only

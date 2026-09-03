@@ -1,0 +1,43 @@
+.topbar-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-actions .text-button,
+.topbar-actions .local-pill {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    min-height: 78px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .topbar > * {
+    min-width: 0;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .topbar-actions .local-pill {
+    padding-inline: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

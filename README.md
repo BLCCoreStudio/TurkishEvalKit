@@ -8,7 +8,7 @@
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into inspectable local artifacts. It is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending an automated heuristic can replace the evaluator.
 
-> **Status:** alpha (`0.12.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, versioned evaluation-dataset interchange, optional rebuildable metadata indexing, JSON/JSONL/CLI interfaces, and localhost-only browser tools.
+> **Status:** alpha (`0.13.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, a localhost reliability workspace, versioned evaluation-dataset interchange, optional rebuildable metadata indexing, JSON/JSONL/CLI interfaces, and localhost-only browser tools.
 
 ## Why this exists
 
@@ -108,7 +108,7 @@ See [`docs/DISAGREEMENT_EXPLORER.md`](docs/DISAGREEMENT_EXPLORER.md).
 
 Population reliability is **not** another single-task calibration score. It analyzes a repeated-task dataset containing multiple independently rated task units.
 
-Current `0.12.x` metrics:
+Current metrics:
 
 - **Krippendorff's alpha**
   - ordinal alpha for scalar `1..5` rubric criteria;
@@ -142,7 +142,19 @@ A reliability specification must declare `minimum_task_count` and the value must
 
 Reliability coefficients are not evaluator correctness scores and are never converted automatically into pass/fail thresholds or rankings.
 
-See [`docs/RELIABILITY.md`](docs/RELIABILITY.md) for formulas, assumptions, and interpretation boundaries.
+#### Reliability Workspace (`0.13.x`)
+
+The localhost workbench now exposes `/reliability`.
+
+- Candidate task units are derived from saved evaluation JSON plus trusted workflow-sidecar attribution.
+- Same-stimulus grouping uses task ID, evaluation type, rubric ID/version, and exact source stimulus.
+- Missing evaluator attribution, duplicate evaluator IDs, and undersized task groups are surfaced as unavailable rather than silently repaired.
+- The browser selection is constrained to one evaluation type and rubric version.
+- The server reloads every selected artifact and rebuilds the task units before analysis; client grouping metadata is never trusted as proof of compatibility.
+- The browser invokes the same `build_population_reliability_report()` core used by the CLI.
+- Reports are ephemeral by default and can be exported explicitly as JSON; no hidden reliability database or evaluator leaderboard is created.
+
+See [`docs/RELIABILITY.md`](docs/RELIABILITY.md) for formulas, assumptions, workspace trust boundaries, and interpretation rules.
 
 ### Evaluation dataset interchange
 
@@ -235,7 +247,7 @@ Write the report:
 turkisheval reliability examples/reliability-text.json --output reliability-report.json
 ```
 
-The reliability surface is intentionally **core + CLI + portable JSON**. There is no separate browser statistics engine; a future browser view should call the same reliability core.
+CLI and browser reliability use the same `reliability.py` core; there is no second statistics implementation in the UI.
 
 ## Dataset interchange from the CLI
 
@@ -314,7 +326,11 @@ Run without opening a browser:
 turkisheval workbench --no-browser
 ```
 
-The main workbench records evaluations, workflow state, revision lineage, history, and JSON exports. Calibration is available from the same localhost application.
+The localhost application serves:
+
+- `/` — evaluation workbench;
+- `/calibration` — calibration dashboard and disagreement explorer;
+- `/reliability` — repeated-task Reliability Workspace.
 
 ## Review queue
 
@@ -334,7 +350,8 @@ The queue-first launcher serves:
 
 - `/` — evaluation workbench;
 - `/queue` — action-oriented review queue;
-- `/calibration` — calibration dashboard and disagreement explorer.
+- `/calibration` — calibration dashboard and disagreement explorer;
+- `/reliability` — repeated-task Reliability Workspace.
 
 The application binds to `127.0.0.1` by default and has no CDN, telemetry, or external AI-service requirement.
 
@@ -385,13 +402,13 @@ Workbench-managed authoritative artifact classes remain separate from disposable
 
 Evaluation artifacts are append-only. Workflow sidecars advance state while retaining the event chain. Revision sidecars are immutable lineage metadata. Calibration reports are append-only derived artifacts. Queue and disagreement-explorer state are read-time projections.
 
-Population reliability reports are portable CLI/library outputs; TurkishEvalKit does not create a hidden persistent reliability database. Interchange datasets are explicit user-selected exports, not a hidden synchronization store. The metadata SQLite file is a cache and may be deleted at any time.
+Population reliability reports are portable CLI/library/browser outputs; TurkishEvalKit does not create a hidden persistent reliability database. Interchange datasets are explicit user-selected exports, not a hidden synchronization store. The metadata SQLite file is a cache and may be deleted at any time.
 
 The local interfaces:
 
 - perform no external LLM calls;
 - have no telemetry;
-- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, disagreement evidence, calibration reports, reliability datasets, interchange datasets, or metadata-index content;
+- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, disagreement evidence, calibration reports, reliability datasets/reports, interchange datasets, or metadata-index content;
 - do not copy referenced audio into evaluation history.
 
 A local-only design is not a substitute for organizational access control. Process only material you are authorized to access and follow applicable retention/privacy requirements.
@@ -408,13 +425,15 @@ immutable evaluation r0
         ├─ same-stimulus peer evaluations → calibration report → disagreement explorer
         └─ evaluator payload ↔ explicit interchange dataset
 
-multiple independent task units
+multiple independently rated task units
         ↓
 repeated-task reliability spec
         ↓
-applicability checks + reliability coefficients
+applicability checks + reliability.py core
         ↓
 portable PopulationReliabilityReport
+        ├─ CLI / library JSON
+        └─ localhost Reliability Workspace → explicit JSON export
 ```
 
 Population reliability consumes evaluation submissions but does not rewrite evaluation, workflow, revision, queue, calibration, or disagreement artifacts. Interchange export/import likewise preserves the trust boundary around server-owned process metadata. Metadata indexing stores only a rebuildable projection and never repairs or replaces canonical artifacts.
@@ -437,6 +456,7 @@ TurkishEvalKit does **not** currently:
 - turn annotation count/severity into score penalties;
 - rewrite an evaluation in place during review or revision;
 - persist queue priority or disagreement hotspot order as independent workflow truth;
+- persist browser reliability results as an authoritative evaluator leaderboard;
 - create parallel revision branches or automatically merge competing revisions;
 - import external workflow/reviewer metadata as trusted local process state;
 - treat the metadata index as authoritative workflow/evaluation storage;
@@ -464,29 +484,31 @@ CI validates:
 - real localhost HTTP/persistence flows;
 - desktop and mobile Chromium workbench flows.
 
-Feature-specific gates additionally validate calibration, disagreement drill-down, immutable revision lineage, review queue behavior, population reliability, evaluation interchange, and rebuildable metadata-index semantics/public API/wheel packaging.
+Feature-specific gates additionally validate calibration, disagreement drill-down, immutable revision lineage, review queue behavior, population reliability, Reliability Workspace core-equivalence/browser assets, evaluation interchange, and rebuildable metadata-index semantics/public API/wheel packaging.
 
 ## Project map
 
 ```text
 src/turkishevalkit/
-├── models.py                  # typed evaluation records
-├── rubrics.py                 # built-in versioned rubrics
-├── evaluation.py              # scalar validation/scoring
-├── pairwise.py                # pairwise validation/scoring
-├── calibration.py             # same-stimulus multi-evaluator agreement
-├── disagreement.py            # evidence-level calibration drill-down
-├── reliability.py             # repeated-task population reliability
-├── interchange.py             # versioned dataset import/export boundary
-├── metadata_index.py          # optional disposable SQLite history cache
-├── calibration_dashboard.py   # calibration history/explorer adapter
-├── workflow.py                # review/revision/adjudication lifecycle
-├── revision.py                # immutable superseding-artifact lineage
-├── review_queue.py            # queue projection/filter/sort/pagination
-├── review_queue_app.py        # queue routes and local launcher
-├── serialization.py           # JSON boundaries
-├── cli.py                     # command-line interface
-├── workbench.py               # localhost Flask adapter
+├── models.py                   # typed evaluation records
+├── rubrics.py                  # built-in versioned rubrics
+├── evaluation.py               # scalar validation/scoring
+├── pairwise.py                 # pairwise validation/scoring
+├── calibration.py              # same-stimulus multi-evaluator agreement
+├── disagreement.py             # evidence-level calibration drill-down
+├── reliability.py              # repeated-task population reliability
+├── reliability_workspace.py    # localhost reliability adapter
+├── workspace_evaluations.py    # canonical evaluation + attribution reader
+├── interchange.py              # versioned dataset import/export boundary
+├── metadata_index.py           # optional disposable SQLite history cache
+├── calibration_dashboard.py    # calibration history/explorer adapter
+├── workflow.py                 # review/revision/adjudication lifecycle
+├── revision.py                 # immutable superseding-artifact lineage
+├── review_queue.py             # queue projection/filter/sort/pagination
+├── review_queue_app.py         # queue routes and local launcher
+├── serialization.py            # JSON boundaries
+├── cli.py                      # command-line interface
+├── workbench.py                # localhost Flask adapter
 ├── templates/
 └── static/
 ```
@@ -511,9 +533,8 @@ src/turkishevalkit/
 
 Near-term work remains ordered around evaluator correctness rather than surface area:
 
-1. an optional browser reliability workspace that reuses the `reliability.py` core instead of duplicating statistics;
-2. explicit branching semantics only if real collaborative revision use cases justify the complexity;
-3. shared audio-alignment primitives if additional evidence consumers need timestamp matching beyond calibration/explorer paths.
+1. explicit branching semantics only if real collaborative revision use cases justify the complexity;
+2. shared audio-alignment primitives if additional evidence consumers need timestamp matching beyond calibration/explorer paths.
 
 ## License
 

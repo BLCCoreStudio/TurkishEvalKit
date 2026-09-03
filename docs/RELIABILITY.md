@@ -149,6 +149,61 @@ Write an auditable JSON report:
 turkisheval reliability examples/reliability-text.json --output reliability-report.json
 ```
 
+## Reliability workspace
+
+`0.13.x` adds a localhost browser workspace at:
+
+```text
+/reliability
+```
+
+It is an adapter over the same `reliability.py` core used by the CLI. There is no second browser statistics implementation.
+
+The workspace derives candidate task units from canonical local artifacts:
+
+1. saved evaluation JSON is parsed back into the normal typed record model;
+2. evaluator identity is accepted only from a valid matching workflow sidecar;
+3. records are grouped by task ID, evaluation type, rubric ID/version, and exact source stimulus;
+4. groups with missing attribution, duplicate evaluator IDs, or fewer than two usable evaluations are marked unavailable;
+5. selecting the first task group locks the browser selection to the same evaluation type and rubric version;
+6. the server reloads every submitted filename from canonical storage before analysis rather than trusting browser-provided grouping metadata;
+7. the resulting `PopulationReliabilitySpec` is passed directly to `build_population_reliability_report()`.
+
+The analysis endpoint is:
+
+```text
+POST /api/reliability/analyze
+```
+
+and candidate discovery is:
+
+```text
+GET /api/reliability/candidates
+```
+
+The browser shows dataset-design properties, criterion-level estimates, population-level estimates, explicit not-applicable reasons, and each metric's recorded assumptions.
+
+### Workspace trust boundary
+
+The browser never establishes evaluator identity on its own. A filename without a valid local workflow attribution cannot become a trusted evaluator submission merely because the client labels it that way.
+
+The server also rejects:
+
+- duplicate filenames within one task group;
+- the same evaluation artifact reused across multiple task units;
+- duplicate evaluator IDs inside one task unit;
+- missing or path-traversal artifact references;
+- task selections below the declared `minimum_task_count`;
+- datasets rejected by the normal reliability core.
+
+Candidate compatibility keys and dataset keys are UI grouping aids only. They are not accepted as proof of compatibility by the analysis endpoint.
+
+### Persistence behavior
+
+Reliability Workspace reports are **ephemeral by default**. Running an analysis does not create a `reliability/` directory, workflow sidecar, revision record, queue state, evaluator leaderboard, or hidden database.
+
+The browser can export the returned report as an explicit JSON file. That export is equivalent in semantics to the library/CLI report and remains outside authoritative workspace state unless the user chooses to store it elsewhere.
+
 ## Interpretation boundary
 
 TurkishEvalKit deliberately does not:
@@ -167,9 +222,9 @@ Reliability measures agreement/consistency properties of a rating process. It is
 
 ## Relationship to other artifacts
 
-The core reliability API consumes evaluation submissions directly. It does not mutate evaluation, workflow, revision, calibration, queue, or disagreement artifacts.
+The core reliability API consumes evaluation submissions directly. It does not mutate evaluation, workflow, revision, calibration, queue, disagreement, interchange, or metadata-index artifacts.
 
-The current `0.10.x` scope is library + CLI + portable JSON. A future browser reliability workspace should call this same core rather than implement a second statistics engine.
+The `0.13.x` browser workspace preserves the same boundary. It reads canonical evaluation/workflow artifacts, builds an in-memory reliability specification, invokes the existing core, and returns the report without persisting a new authoritative artifact class.
 
 ## Method references
 

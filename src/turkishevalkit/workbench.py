@@ -1,4 +1,4 @@
-"""Local browser workbench backed by evaluation, review, revision, and calibration cores."""
+"""Local browser workbench for evaluation, review, calibration, and reliability."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from .evaluation import EvaluationResult, evaluate_submission
 from .metadata_index import load_indexed_history
 from .models import PairwiseEvaluationRecord
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
+from .reliability_workspace import create_reliability_blueprint
 from .revision import (
     RevisionLineage,
     create_revision_lineage,
@@ -388,6 +389,7 @@ def create_app(workspace: Path | None = None) -> Flask:
     resolved_workspace = (workspace or default_workspace()).expanduser().resolve()
     app = Flask(__name__)
     app.register_blueprint(create_calibration_blueprint(resolved_workspace))
+    app.register_blueprint(create_reliability_blueprint(resolved_workspace))
 
     @app.get("/")
     def index() -> str:
