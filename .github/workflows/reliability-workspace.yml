@@ -10,10 +10,15 @@ on:
       - "src/turkishevalkit/reliability_workspace.py"
       - "src/turkishevalkit/workspace_evaluations.py"
       - "src/turkishevalkit/workbench.py"
+      - "src/turkishevalkit/templates/workbench.html"
+      - "src/turkishevalkit/templates/calibration.html"
+      - "src/turkishevalkit/templates/review_queue.html"
       - "src/turkishevalkit/templates/reliability.html"
+      - "src/turkishevalkit/static/navigation.css"
       - "src/turkishevalkit/static/reliability.css"
       - "src/turkishevalkit/static/reliability.js"
       - "tests/test_reliability_workspace.py"
+      - "tests/e2e/reliability_workspace.mjs"
   pull_request:
     paths:
       - ".github/workflows/reliability-workspace.yml"
@@ -22,10 +27,15 @@ on:
       - "src/turkishevalkit/reliability_workspace.py"
       - "src/turkishevalkit/workspace_evaluations.py"
       - "src/turkishevalkit/workbench.py"
+      - "src/turkishevalkit/templates/workbench.html"
+      - "src/turkishevalkit/templates/calibration.html"
+      - "src/turkishevalkit/templates/review_queue.html"
       - "src/turkishevalkit/templates/reliability.html"
+      - "src/turkishevalkit/static/navigation.css"
       - "src/turkishevalkit/static/reliability.css"
       - "src/turkishevalkit/static/reliability.js"
       - "tests/test_reliability_workspace.py"
+      - "tests/e2e/reliability_workspace.mjs"
 
 permissions:
   contents: read
@@ -61,7 +71,9 @@ jobs:
             tests/test_cli_reliability.py
 
       - name: JavaScript syntax
-        run: node --check src/turkishevalkit/static/reliability.js
+        run: |
+          node --check src/turkishevalkit/static/reliability.js
+          node --check tests/e2e/reliability_workspace.mjs
 
       - name: Route and core-equivalence smoke
         run: |
@@ -139,6 +151,7 @@ jobs:
               "turkishevalkit/reliability_workspace.py",
               "turkishevalkit/workspace_evaluations.py",
               "turkishevalkit/templates/reliability.html",
+              "turkishevalkit/static/navigation.css",
               "turkishevalkit/static/reliability.css",
               "turkishevalkit/static/reliability.js",
           }
@@ -158,3 +171,102 @@ jobs:
           assert turkishevalkit.__version__ == version("turkishevalkit")
           assert turkishevalkit.__version__ == "0.13.0"
           PY
+
+  reliability-browser-e2e:
+    needs: reliability-workspace-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WORKSPACE: /tmp/turkisheval-reliability-browser-workspace
+      PORT: "8767"
+      WORKBENCH_URL: http://127.0.0.1:8767
+      E2E_ARTIFACTS: /tmp/turkisheval-reliability-e2e
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install workbench
+        run: python -m pip install --disable-pip-version-check -e ".[workbench]"
+
+      - name: Install pinned Playwright and Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.62.1
+          npx playwright install --with-deps chromium
+
+      - name: Seed independently attributed task units
+        run: |
+          rm -rf "$WORKSPACE" "$E2E_ARTIFACTS"
+          mkdir -p "$WORKSPACE" "$E2E_ARTIFACTS"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          from turkishevalkit.evaluation import evaluate_submission
+          from turkishevalkit.reliability import load_reliability_spec
+          from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
+          from turkishevalkit.workbench import create_workflow, save_result, save_workflow
+
+          workspace = Path(os.environ["WORKSPACE"])
+          spec = load_reliability_spec(Path("examples/reliability-text.json"))
+          for task_index, task in enumerate(spec.tasks, start=1):
+              for evaluator_index, submission in enumerate(task.submissions, start=1):
+                  result = evaluate_submission(submission.record, TEXT_QUALITY_RUBRIC)
+                  destination = save_result(workspace, result)
+                  save_workflow(
+                      workspace,
+                      create_workflow(
+                          artifact_id=destination.name,
+                          task_id=submission.record.task_id,
+                          session_id=f"browser-{task_index}-{evaluator_index}",
+                          evaluator_id=submission.evaluator_id,
+                      ),
+                  )
+          PY
+
+      - name: Start localhost workbench
+        run: |
+          turkisheval workbench --no-browser --workspace "$WORKSPACE" --port "$PORT" \
+            > "$RUNNER_TEMP/reliability-workbench.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/reliability-workbench.pid"
+
+          ready=0
+          for _ in $(seq 1 60); do
+            if curl --fail --silent "$WORKBENCH_URL/api/reliability/candidates" > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat "$RUNNER_TEMP/reliability-workbench.log"
+            exit 1
+          fi
+
+      - name: Exercise desktop and mobile reliability flows
+        run: node tests/e2e/reliability_workspace.mjs
+
+      - name: Verify exports and no hidden reliability persistence
+        run: |
+          test -s "$E2E_ARTIFACTS/reliability-desktop.png"
+          test -s "$E2E_ARTIFACTS/reliability-mobile.png"
+          test -s "$E2E_ARTIFACTS/reliability-report.json"
+          test "$(find "$WORKSPACE/evaluations" -type f -name '*.json' | wc -l)" -eq 9
+          test "$(find "$WORKSPACE/workflows" -type f -name '*.workflow.json' | wc -l)" -eq 9
+          test ! -d "$WORKSPACE/reliability"
+          test ! -d "$WORKSPACE/reliabilities"
+          ls -lh "$E2E_ARTIFACTS"
+
+      - name: Stop reliability workbench
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/reliability-workbench.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/reliability-workbench.pid")" 2>/dev/null || true
+          fi
+          cat "$RUNNER_TEMP/reliability-workbench.log" 2>/dev/null || true
