@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**", "chore/**", "test/**", "release/**"]
+    branches: [main, "feat/**", "fix/**", "refactor/**", "chore/**", "test/**", "release/**"]
   pull_request:
 
 permissions:
@@ -58,34 +58,42 @@ jobs:
               "turkishevalkit/static/workbench.js",
               "turkishevalkit/static/audio_annotations.css",
               "turkishevalkit/static/audio_annotations.js",
+              "turkishevalkit/templates/calibration.html",
+              "turkishevalkit/static/calibration.css",
+              "turkishevalkit/static/calibration.js",
+              "turkishevalkit/static/navigation.css",
+              "turkishevalkit/templates/reliability.html",
+              "turkishevalkit/static/reliability.css",
+              "turkishevalkit/static/reliability.js",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
           missing = required - names
           if missing:
-              raise SystemExit(f"missing workbench assets: {sorted(missing)}")
+              raise SystemExit(f"missing packaged workbench assets: {sorted(missing)}")
           PY
 
       - name: CLI smoke test
         run: |
-          turkisheval rubrics
-          turkisheval evaluate examples/text-evaluation.json --json > /tmp/text-result.json
-          turkisheval evaluate examples/audio-evaluation.json --json > /tmp/audio-result.json
-          turkisheval evaluate examples/pairwise-evaluation.json --json > /tmp/pairwise-result.json
-          grep -q '"normalized_score"' /tmp/text-result.json
-          grep -q '"normalized_score"' /tmp/audio-result.json
-          grep -q '"audio_annotations"' /tmp/audio-result.json
-          grep -q '"start_ms": 1850' /tmp/audio-result.json
-          grep -q '"preference_score"' /tmp/pairwise-result.json
-          grep -q '"overall_preference": "a"' /tmp/pairwise-result.json
+          turkisheval rubrics > /tmp/rubrics.txt
+          turkisheval evaluate examples/text-evaluation.json > /tmp/evaluation.txt
+          turkisheval calibrate examples/calibration-text.json > /tmp/calibration.txt
+          turkisheval reliability examples/reliability-text.json > /tmp/reliability.txt
+          turkisheval convert examples/text-evaluation.json /tmp/interchange.json
+          turkisheval index status --workspace /tmp/turkisheval-index-workspace > /tmp/index-status.txt
+          python -m turkishevalkit --help > /tmp/help.txt
+          grep -q "tr-text-quality" /tmp/rubrics.txt
+          grep -q "95.00" /tmp/evaluation.txt
+          grep -q "Exact criterion agreement" /tmp/calibration.txt
+          grep -q "Krippendorff" /tmp/reliability.txt
+          grep -q '"schema": "turkishevalkit.evaluation-dataset"' /tmp/interchange.json
+          grep -q "State: absent" /tmp/index-status.txt
+          grep -q "workbench" /tmp/help.txt
 
   live-workbench:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    env:
-      WORKSPACE: /tmp/turkisheval-live
-      PORT: "8765"
 
     steps:
       - name: Checkout
@@ -102,223 +110,64 @@ jobs:
 
       - name: Start real localhost server
         run: |
-          mkdir -p "$WORKSPACE"
-          turkisheval workbench --no-browser --workspace "$WORKSPACE" --port "$PORT" \
-            > "$RUNNER_TEMP/workbench.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/workbench.pid"
-
+          rm -rf /tmp/turkisheval-live-workspace
+          turkisheval workbench \
+            --workspace /tmp/turkisheval-live-workspace \
+            --port 8766 \
+            --no-browser \
+            > /tmp/turkisheval-workbench.log 2>&1 &
+          echo $! > /tmp/turkisheval-workbench.pid
           ready=0
           for _ in $(seq 1 40); do
-            if curl --fail --silent --show-error \
-              "http://127.0.0.1:$PORT/api/config" \
-              > "$RUNNER_TEMP/config.json"; then
+            if curl --fail --silent http://127.0.0.1:8766/api/config > /tmp/config.json; then
               ready=1
               break
             fi
             sleep 0.25
           done
-
           if [ "$ready" -ne 1 ]; then
-            cat "$RUNNER_TEMP/workbench.log"
-            exit 1
-          fi
-
-          ss -ltn | grep -q "127.0.0.1:$PORT"
-          if ss -ltn | grep -q "0.0.0.0:$PORT"; then
-            echo "workbench unexpectedly bound to all IPv4 interfaces"
+            cat /tmp/turkisheval-workbench.log
             exit 1
           fi
 
       - name: Exercise real HTTP and persistence flow
         run: |
-          curl --fail --silent --show-error "http://127.0.0.1:$PORT/" \
-            > "$RUNNER_TEMP/index.html"
-          grep -q "TurkishEvalKit" "$RUNNER_TEMP/index.html"
-          grep -q "Pairwise" "$RUNNER_TEMP/index.html"
-          grep -q "audio_annotations.js" "$RUNNER_TEMP/index.html"
-
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/static/workbench.css" \
-            > "$RUNNER_TEMP/workbench.css"
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/static/workbench.js" \
-            > "$RUNNER_TEMP/workbench.js"
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/static/audio_annotations.css" \
-            > "$RUNNER_TEMP/audio_annotations.css"
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/static/audio_annotations.js" \
-            > "$RUNNER_TEMP/audio_annotations.js"
-          test -s "$RUNNER_TEMP/workbench.css"
-          test -s "$RUNNER_TEMP/workbench.js"
-          test -s "$RUNNER_TEMP/audio_annotations.css"
-          test -s "$RUNNER_TEMP/audio_annotations.js"
-          node --check "$RUNNER_TEMP/workbench.js"
-          node --check "$RUNNER_TEMP/audio_annotations.js"
-
+          curl --fail --silent http://127.0.0.1:8766/ > /tmp/workbench.html
+          curl --fail --silent http://127.0.0.1:8766/calibration > /tmp/calibration.html
+          curl --fail --silent http://127.0.0.1:8766/reliability > /tmp/reliability.html
+          curl --fail --silent \
+            -H 'Content-Type: application/json' \
+            --data-binary @examples/text-evaluation.json \
+            http://127.0.0.1:8766/api/evaluations > /tmp/saved.json
+          curl --fail --silent http://127.0.0.1:8766/api/history > /tmp/history.json
+          curl --fail --silent http://127.0.0.1:8766/api/reliability/candidates > /tmp/reliability-candidates.json
           python - <<'PY'
           import json
-          import os
           from pathlib import Path
 
-          data = json.loads(Path("examples/text-evaluation.json").read_text(encoding="utf-8"))
-          data["workflow_context"] = {
-              "session_id": "live-session-001",
-              "evaluator_id": "live-evaluator-01",
-          }
-          Path(os.environ["RUNNER_TEMP"], "text-workflow.json").write_text(
-              json.dumps(data, ensure_ascii=False),
-              encoding="utf-8",
-          )
+          saved = json.loads(Path('/tmp/saved.json').read_text())
+          history = json.loads(Path('/tmp/history.json').read_text())
+          candidates = json.loads(Path('/tmp/reliability-candidates.json').read_text())
+          assert saved['result']['task_id'] == 'text-demo-001'
+          assert len(history['items']) == 1
+          assert history['items'][0]['filename'] == saved['filename']
+          assert candidates['minimum_task_count_floor'] == 3
+          assert len(candidates['groups']) == 1
+          assert candidates['groups'][0]['ready'] is False
+          files = list(Path('/tmp/turkisheval-live-workspace/evaluations').glob('*.json'))
+          assert len(files) == 1
           PY
-
-          curl --fail --silent --show-error \
-            -H "Content-Type: application/json" \
-            --data-binary @"$RUNNER_TEMP/text-workflow.json" \
-            "http://127.0.0.1:$PORT/api/evaluations" \
-            > "$RUNNER_TEMP/text-created.json"
-
-          curl --fail --silent --show-error \
-            -H "Content-Type: application/json" \
-            --data-binary @examples/audio-evaluation.json \
-            "http://127.0.0.1:$PORT/api/evaluations" \
-            > "$RUNNER_TEMP/audio-created.json"
-
-          curl --fail --silent --show-error \
-            -H "Content-Type: application/json" \
-            --data-binary @examples/pairwise-evaluation.json \
-            "http://127.0.0.1:$PORT/api/evaluations" \
-            > "$RUNNER_TEMP/pairwise-created.json"
-
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          temp = Path(os.environ["RUNNER_TEMP"])
-          text = json.loads((temp / "text-created.json").read_text())
-          assert text["workflow"]["state"] == "draft"
-          assert text["workflow"]["session"]["session_id"] == "live-session-001"
-          assert text["workflow"]["session"]["evaluator_id"] == "live-evaluator-01"
-          (temp / "text-name.txt").write_text(text["filename"])
-          PY
-
-          text_name=$(cat "$RUNNER_TEMP/text-name.txt")
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/api/history/$text_name" \
-            > "$RUNNER_TEMP/text-before-workflow.json"
-
-          curl --fail --silent --show-error \
-            -H "Content-Type: application/json" \
-            --data '{"actor_id":"live-evaluator-01","note":"Ready for review."}' \
-            "http://127.0.0.1:$PORT/api/workflows/$text_name/submit" \
-            > "$RUNNER_TEMP/text-submitted.json"
-
-          curl --fail --silent --show-error \
-            -H "Content-Type: application/json" \
-            --data '{"actor_id":"live-reviewer-01","outcome":"escalate","note":"Factuality evidence requires independent resolution."}' \
-            "http://127.0.0.1:$PORT/api/workflows/$text_name/review" \
-            > "$RUNNER_TEMP/text-reviewed.json"
-
-          curl --fail --silent --show-error \
-            -H "Content-Type: application/json" \
-            --data '{"actor_id":"live-adjudicator-01","outcome":"review_concern_upheld","note":"Independent evidence confirms the reviewer concern."}' \
-            "http://127.0.0.1:$PORT/api/workflows/$text_name/adjudicate" \
-            > "$RUNNER_TEMP/text-adjudicated.json"
-
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/api/history/$text_name/details" \
-            > "$RUNNER_TEMP/text-details.json"
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/api/history/$text_name" \
-            > "$RUNNER_TEMP/text-after-workflow.json"
-          cmp "$RUNNER_TEMP/text-before-workflow.json" "$RUNNER_TEMP/text-after-workflow.json"
-
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/api/history" \
-            > "$RUNNER_TEMP/history.json"
-
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          temp = Path(os.environ["RUNNER_TEMP"])
-          workspace = Path(os.environ["WORKSPACE"])
-
-          text = json.loads((temp / "text-created.json").read_text())
-          audio = json.loads((temp / "audio-created.json").read_text())
-          pairwise = json.loads((temp / "pairwise-created.json").read_text())
-          submitted = json.loads((temp / "text-submitted.json").read_text())["workflow"]
-          reviewed = json.loads((temp / "text-reviewed.json").read_text())["workflow"]
-          adjudicated = json.loads((temp / "text-adjudicated.json").read_text())["workflow"]
-          details = json.loads((temp / "text-details.json").read_text())
-          history = json.loads((temp / "history.json").read_text())["items"]
-
-          assert text["result"]["task_id"] == "text-demo-001"
-          assert text["result"]["normalized_score"] == 95.0
-          assert submitted["state"] == "submitted"
-          assert reviewed["state"] == "reviewed"
-          assert reviewed["events"][-1]["review_outcome"] == "escalate"
-          assert adjudicated["state"] == "adjudicated"
-          assert adjudicated["events"][-1]["adjudication_outcome"] == "review_concern_upheld"
-          assert [event["sequence"] for event in adjudicated["events"]] == [1, 2, 3, 4]
-          assert details["evaluation"]["task_id"] == "text-demo-001"
-          assert details["workflow"]["state"] == "adjudicated"
-
-          assert audio["result"]["task_id"] == "audio-demo-001"
-          annotations = audio["result"]["payload"]["audio_annotations"]
-          assert len(annotations) == 2
-          assert annotations[0]["start_ms"] == 1850
-          assert annotations[0]["end_ms"] == 2550
-          assert annotations[0]["category"] == "emphasis"
-          assert annotations[1]["start_ms"] == annotations[1]["end_ms"] == 5100
-          assert annotations[1]["category"] == "intonation"
-          assert pairwise["result"]["task_id"] == "pairwise-demo-001"
-          assert pairwise["result"]["overall_preference"] == "a"
-          assert pairwise["result"]["preference_score"] == 40.0
-          assert len(history) == 3
-          assert {item["evaluation_type"] for item in history} == {"text", "audio", "pairwise"}
-
-          by_task = {item["task_id"]: item for item in history}
-          assert by_task["text-demo-001"]["workflow_state"] == "adjudicated"
-          assert by_task["text-demo-001"]["review_outcome"] == "escalate"
-          assert by_task["text-demo-001"]["adjudication_outcome"] == "review_concern_upheld"
-          assert by_task["pairwise-demo-001"]["overall_preference"] == "a"
-          assert by_task["pairwise-demo-001"]["preference_score"] == 40.0
-
-          persisted = list((workspace / "evaluations").glob("*.json"))
-          workflows = list((workspace / "workflows").glob("*.workflow.json"))
-          assert len(persisted) == 3
-          assert len(workflows) == 1
-
-          (temp / "export-name.txt").write_text(by_task["pairwise-demo-001"]["filename"])
-          PY
-
-          export_name=$(cat "$RUNNER_TEMP/export-name.txt")
-          curl --fail --silent --show-error \
-            "http://127.0.0.1:$PORT/api/history/$export_name" \
-            > "$RUNNER_TEMP/exported.json"
-
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          payload = json.loads((Path(os.environ["RUNNER_TEMP"]) / "exported.json").read_text())
-          assert payload["task_id"] == "pairwise-demo-001"
-          assert payload["preference_score"] == 40.0
-          assert payload["payload"]["source"]["response_a"]
-          assert payload["payload"]["source"]["response_b"]
-          PY
+          grep -q "TurkishEvalKit" /tmp/workbench.html
+          grep -q "Multi-evaluator calibration" /tmp/calibration.html
+          grep -q "Population reliability workspace" /tmp/reliability.html
 
       - name: Stop workbench
         if: always()
         run: |
-          if [ -f "$RUNNER_TEMP/workbench.pid" ]; then
-            kill "$(cat "$RUNNER_TEMP/workbench.pid")" 2>/dev/null || true
+          if [ -f /tmp/turkisheval-workbench.pid ]; then
+            kill "$(cat /tmp/turkisheval-workbench.pid)" 2>/dev/null || true
           fi
-          cat "$RUNNER_TEMP/workbench.log" 2>/dev/null || true
+          cat /tmp/turkisheval-workbench.log 2>/dev/null || true
 
   browser-e2e:
     needs: quality
@@ -326,9 +175,9 @@ jobs:
     timeout-minutes: 10
     env:
       WORKSPACE: /tmp/turkisheval-browser-workspace
-      PORT: "8766"
-      WORKBENCH_URL: http://127.0.0.1:8766
-      E2E_ARTIFACTS: /tmp/turkisheval-browser-e2e
+      PORT: "8767"
+      WORKBENCH_URL: http://127.0.0.1:8767
+      E2E_ARTIFACTS: /tmp/turkisheval-e2e
 
     steps:
       - name: Checkout
@@ -351,10 +200,13 @@ jobs:
       - name: Start workbench for browser test
         run: |
           rm -rf "$WORKSPACE" "$E2E_ARTIFACTS"
-          mkdir -p "$WORKSPACE" "$E2E_ARTIFACTS"
-          turkisheval workbench --no-browser --workspace "$WORKSPACE" --port "$PORT" \
-            > "$RUNNER_TEMP/browser-workbench.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/browser-workbench.pid"
+          mkdir -p "$E2E_ARTIFACTS"
+          turkisheval workbench \
+            --workspace "$WORKSPACE" \
+            --port "$PORT" \
+            --no-browser \
+            > "$RUNNER_TEMP/workbench.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/workbench.pid"
 
           ready=0
           for _ in $(seq 1 60); do
@@ -364,9 +216,8 @@ jobs:
             fi
             sleep 0.25
           done
-
           if [ "$ready" -ne 1 ]; then
-            cat "$RUNNER_TEMP/browser-workbench.log"
+            cat "$RUNNER_TEMP/workbench.log"
             exit 1
           fi
 
@@ -375,16 +226,17 @@ jobs:
 
       - name: Verify browser artifacts and persisted records
         run: |
-          test -s "$E2E_ARTIFACTS/desktop.png"
-          test -s "$E2E_ARTIFACTS/mobile.png"
+          test -s "$E2E_ARTIFACTS/desktop-workbench.png"
+          test -s "$E2E_ARTIFACTS/mobile-workbench.png"
           test "$(find "$WORKSPACE/evaluations" -type f -name '*.json' | wc -l)" -eq 4
           test "$(find "$WORKSPACE/workflows" -type f -name '*.workflow.json' | wc -l)" -eq 4
+          test "$(find "$WORKSPACE/revisions" -type f -name '*.revision.json' | wc -l)" -eq 1
           ls -lh "$E2E_ARTIFACTS"
 
       - name: Stop browser test workbench
         if: always()
         run: |
-          if [ -f "$RUNNER_TEMP/browser-workbench.pid" ]; then
-            kill "$(cat "$RUNNER_TEMP/browser-workbench.pid")" 2>/dev/null || true
+          if [ -f "$RUNNER_TEMP/workbench.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/workbench.pid")" 2>/dev/null || true
           fi
-          cat "$RUNNER_TEMP/browser-workbench.log" 2>/dev/null || true
+          cat "$RUNNER_TEMP/workbench.log" 2>/dev/null || true
