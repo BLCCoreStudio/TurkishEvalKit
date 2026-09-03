@@ -257,11 +257,29 @@ def _initialize_schema(connection: sqlite3.Connection) -> None:
     )
 
 
+def _verify_expected_source_snapshot(
+    workspace: Path,
+    expected_source_fingerprint: str,
+    expected_source_file_count: int,
+) -> None:
+    current_fingerprint, current_file_count = workspace_metadata_fingerprint(workspace)
+    if (
+        current_fingerprint != expected_source_fingerprint
+        or current_file_count != expected_source_file_count
+    ):
+        raise ValueError(
+            "canonical history changed during metadata index rebuild; retry the rebuild"
+        )
+
+
 def rebuild_metadata_index(
     workspace: Path,
     entries: Sequence[dict[str, Any]],
+    *,
+    expected_source_fingerprint: str,
+    expected_source_file_count: int,
 ) -> MetadataIndexStatus:
-    """Atomically rebuild the cache from a canonical history scan."""
+    """Atomically publish a cache only if the scanned canonical snapshot stayed stable."""
 
     resolved = workspace.expanduser().resolve()
     path = metadata_index_path(resolved)
@@ -269,11 +287,14 @@ def rebuild_metadata_index(
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.unlink(missing_ok=True)
     Path(f"{temporary}-journal").unlink(missing_ok=True)
-
-    source_fingerprint, source_file_count = workspace_metadata_fingerprint(resolved)
     built_at = datetime.now(UTC).isoformat()
 
     try:
+        _verify_expected_source_snapshot(
+            resolved,
+            expected_source_fingerprint,
+            expected_source_file_count,
+        )
         with closing(sqlite3.connect(temporary)) as connection:
             _initialize_schema(connection)
             connection.executemany(
@@ -310,12 +331,17 @@ def rebuild_metadata_index(
                 "INSERT INTO metadata (key, value) VALUES (?, ?)",
                 (
                     ("schema_version", str(METADATA_INDEX_SCHEMA_VERSION)),
-                    ("source_fingerprint", source_fingerprint),
-                    ("source_file_count", str(source_file_count)),
+                    ("source_fingerprint", expected_source_fingerprint),
+                    ("source_file_count", str(expected_source_file_count)),
                     ("built_at", built_at),
                 ),
             )
             connection.commit()
+        _verify_expected_source_snapshot(
+            resolved,
+            expected_source_fingerprint,
+            expected_source_file_count,
+        )
         temporary.replace(path)
     except (OSError, sqlite3.DatabaseError, TypeError, ValueError):
         temporary.unlink(missing_ok=True)
@@ -326,7 +352,7 @@ def rebuild_metadata_index(
         state=MetadataIndexState.FRESH,
         path=str(path),
         record_count=len(entries),
-        source_file_count=source_file_count,
+        source_file_count=expected_source_file_count,
         schema_version=METADATA_INDEX_SCHEMA_VERSION,
         built_at=built_at,
     )
@@ -344,6 +370,7 @@ def load_indexed_history(workspace: Path) -> list[dict[str, Any]] | None:
             status = _status_from_connection(workspace, path, connection)
             if status.state is not MetadataIndexState.FRESH:
                 return None
+            metadata = _metadata(connection)
             rows = connection.execute(
                 """
                 SELECT
@@ -371,6 +398,9 @@ def load_indexed_history(workspace: Path) -> list[dict[str, Any]] | None:
                 ORDER BY position ASC
                 """
             ).fetchall()
+            current_fingerprint, _ = workspace_metadata_fingerprint(workspace)
+            if metadata.get("source_fingerprint") != current_fingerprint:
+                return None
     except (OSError, sqlite3.DatabaseError, ValueError):
         return None
 
