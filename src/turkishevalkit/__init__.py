@@ -1,5 +1,10 @@
 """TurkishEvalKit public package interface."""
 
+from .audio_alignment import (
+    AudioAnnotationMatch,
+    annotation_temporal_similarity,
+    match_audio_annotations,
+)
 from .calibration import (
     AudioAnnotationAgreement,
     AudioAnnotationPairAgreement,
@@ -96,6 +101,7 @@ __all__ = [
     "AdjudicationOutcome",
     "AudioAnnotation",
     "AudioAnnotationAgreement",
+    "AudioAnnotationMatch",
     "AudioAnnotationPairAgreement",
     "AudioEvidence",
     "AudioIssueCategory",
@@ -134,6 +140,7 @@ __all__ = [
     "WorkflowState",
     "WorkspaceImportSummary",
     "adjudicate_workflow",
+    "annotation_temporal_similarity",
     "build_calibration_report",
     "build_disagreement_report",
     "build_population_reliability_report",
@@ -148,6 +155,7 @@ __all__ = [
     "load_indexed_history",
     "load_interchange_records",
     "load_workspace_records",
+    "match_audio_annotations",
     "metadata_index_path",
     "metadata_index_status",
     "metadata_index_status_to_dict",
@@ -161,4 +169,4 @@ __all__ = [
     "write_interchange_records",
 ]
 
-__version__ = "0.13.0"
+__version__ = "0.14.0"
