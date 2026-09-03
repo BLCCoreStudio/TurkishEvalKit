@@ -1,0 +1,106 @@
+name: Rebuildable Metadata Index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/metadata-index.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/__init__.py"
+      - "src/turkishevalkit/cli.py"
+      - "src/turkishevalkit/metadata_index.py"
+      - "src/turkishevalkit/workbench.py"
+      - "src/turkishevalkit/review_queue.py"
+      - "docs/METADATA_INDEX.md"
+      - "tests/test_metadata_index.py"
+      - "tests/test_cli_metadata_index.py"
+  pull_request:
+    paths:
+      - ".github/workflows/metadata-index.yml"
+      - "pyproject.toml"
+      - "src/turkishevalkit/__init__.py"
+      - "src/turkishevalkit/cli.py"
+      - "src/turkishevalkit/metadata_index.py"
+      - "src/turkishevalkit/workbench.py"
+      - "src/turkishevalkit/review_queue.py"
+      - "docs/METADATA_INDEX.md"
+      - "tests/test_metadata_index.py"
+      - "tests/test_cli_metadata_index.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: metadata-index-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  metadata-index-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Metadata index tests
+        run: pytest -q tests/test_metadata_index.py tests/test_cli_metadata_index.py
+
+      - name: Public API smoke
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+
+          import turkishevalkit
+          from turkishevalkit import (
+              METADATA_INDEX_SCHEMA_VERSION,
+              MetadataIndexState,
+              clear_metadata_index,
+              metadata_index_status,
+              rebuild_metadata_index,
+          )
+
+          assert turkishevalkit.__version__ == version("turkishevalkit")
+          assert METADATA_INDEX_SCHEMA_VERSION == 1
+          assert MetadataIndexState.FRESH.value == "fresh"
+          assert callable(clear_metadata_index)
+          assert callable(metadata_index_status)
+          assert callable(rebuild_metadata_index)
+          PY
+
+      - name: CLI surface
+        run: |
+          turkisheval index --help
+          turkisheval index status --help
+          turkisheval index rebuild --help
+          turkisheval index clear --help
+
+      - name: Wheel metadata index module
+        run: |
+          rm -rf /tmp/turkishevalkit-index-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-index-wheel
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(
+              Path("/tmp/turkishevalkit-index-wheel").glob("turkishevalkit-*.whl")
+          )
+          required = {
+              "turkishevalkit/metadata_index.py",
+              "turkishevalkit/workbench.py",
+              "turkishevalkit/review_queue.py",
+          }
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          missing = required - names
+          if missing:
+              raise SystemExit(f"missing metadata index modules: {sorted(missing)}")
+          PY

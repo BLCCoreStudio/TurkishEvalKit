@@ -20,6 +20,13 @@ from .interchange import (
     load_interchange_records,
     write_interchange_records,
 )
+from .metadata_index import (
+    clear_metadata_index,
+    metadata_index_status,
+    metadata_index_status_to_dict,
+    rebuild_metadata_index,
+    workspace_metadata_fingerprint,
+)
 from .models import EvaluationType, PairwiseEvaluationRecord, Preference
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .reliability import (
@@ -216,6 +223,35 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate and report import actions without writing artifacts.",
     )
+
+    index_parser = subparsers.add_parser(
+        "index",
+        help="Manage the optional rebuildable local metadata index.",
+    )
+    index_subparsers = index_parser.add_subparsers(dest="index_command", required=True)
+
+    index_status_parser = index_subparsers.add_parser(
+        "status",
+        help="Inspect whether the optional metadata index is absent, fresh, stale, or corrupt.",
+    )
+    _add_workspace_argument(index_status_parser)
+    index_status_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print complete index status as JSON.",
+    )
+
+    index_rebuild_parser = index_subparsers.add_parser(
+        "rebuild",
+        help="Rebuild the metadata index from canonical JSON artifacts.",
+    )
+    _add_workspace_argument(index_rebuild_parser)
+
+    index_clear_parser = index_subparsers.add_parser(
+        "clear",
+        help="Delete the rebuildable index without touching canonical artifacts.",
+    )
+    _add_workspace_argument(index_clear_parser)
 
     workbench_parser = subparsers.add_parser(
         "workbench",
@@ -429,6 +465,57 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"{import_summary.duplicate_count} duplicate(s)"
         )
         return 0
+
+    if args.command == "index":
+        workspace = _resolved_workspace(args.workspace)
+        if args.index_command == "status":
+            status = metadata_index_status(workspace)
+            if args.json:
+                print(
+                    json.dumps(
+                        metadata_index_status_to_dict(status),
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+            else:
+                print(
+                    f"{status.state.value}: {status.record_count} indexed record(s) · "
+                    f"{status.source_file_count} canonical source file(s)"
+                )
+                if status.reason:
+                    print(status.reason)
+            return 0
+
+        if args.index_command == "rebuild":
+            try:
+                from .workbench import scan_history
+
+                fingerprint, source_file_count = workspace_metadata_fingerprint(workspace)
+                entries = scan_history(workspace)
+                status = rebuild_metadata_index(
+                    workspace,
+                    entries,
+                    expected_source_fingerprint=fingerprint,
+                    expected_source_file_count=source_file_count,
+                )
+            except (OSError, TypeError, ValueError) as exc:
+                parser.exit(2, f"error: {exc}\n")
+            print(
+                f"rebuilt metadata index: {status.record_count} record(s) · "
+                f"{status.source_file_count} canonical source file(s)"
+            )
+            return 0
+
+        if args.index_command == "clear":
+            try:
+                removed = clear_metadata_index(workspace)
+            except OSError as exc:
+                parser.exit(2, f"error: {exc}\n")
+            print("metadata index cleared" if removed else "metadata index already absent")
+            return 0
+
+        parser.error("unsupported index command")
 
     if args.command == "workbench":
         try:

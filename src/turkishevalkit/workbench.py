@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 
 from .calibration_dashboard import create_calibration_blueprint
 from .evaluation import EvaluationResult, evaluate_submission
+from .metadata_index import load_indexed_history
 from .models import PairwiseEvaluationRecord
 from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .revision import (
@@ -258,8 +259,8 @@ def _lineage_summary(
     }
 
 
-def list_history(workspace: Path) -> list[dict[str, Any]]:
-    """Return recent saved evaluations, newest first, with workflow and revision status."""
+def scan_history(workspace: Path) -> list[dict[str, Any]]:
+    """Scan canonical JSON artifacts and derive history metadata newest first."""
 
     directory = _evaluation_dir(workspace)
     if not directory.exists():
@@ -301,6 +302,15 @@ def list_history(workspace: Path) -> list[dict[str, Any]]:
             }
         )
     return entries
+
+
+def list_history(workspace: Path) -> list[dict[str, Any]]:
+    """Use a fresh optional index when available, otherwise scan canonical artifacts."""
+
+    indexed = load_indexed_history(workspace)
+    if indexed is not None:
+        return indexed
+    return scan_history(workspace)
 
 
 def _read_evaluation(workspace: Path, artifact_id: str) -> dict[str, Any]:
