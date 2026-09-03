@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from itertools import combinations
 from typing import Any
 
+from .audio_alignment import match_audio_annotations
 from .calibration import EvaluatorSubmission, build_calibration_report
 from .models import (
     AudioAnnotation,
@@ -227,76 +228,6 @@ def _overall_pairwise_differences(
     return tuple(differences)
 
 
-def _distance_to_interval(point_ms: int, start_ms: int, end_ms: int) -> int:
-    if start_ms <= point_ms <= end_ms:
-        return 0
-    return min(abs(point_ms - start_ms), abs(point_ms - end_ms))
-
-
-def _annotation_temporal_similarity(
-    left: AudioAnnotation,
-    right: AudioAnnotation,
-    tolerance_ms: int,
-) -> float | None:
-    if left.category is not right.category:
-        return None
-
-    left_point = left.start_ms == left.end_ms
-    right_point = right.start_ms == right.end_ms
-    if left_point and right_point:
-        distance = abs(left.start_ms - right.start_ms)
-        if distance > tolerance_ms:
-            return None
-        return max(0.0, 1.0 - (distance / (tolerance_ms + 1)))
-
-    if left_point != right_point:
-        point = left if left_point else right
-        interval = right if left_point else left
-        distance = _distance_to_interval(point.start_ms, interval.start_ms, interval.end_ms)
-        if distance > tolerance_ms:
-            return None
-        return max(0.0, 1.0 - (distance / (tolerance_ms + 1)))
-
-    overlap = max(0, min(left.end_ms, right.end_ms) - max(left.start_ms, right.start_ms))
-    if overlap > 0:
-        union = max(left.end_ms, right.end_ms) - min(left.start_ms, right.start_ms)
-        return overlap / union
-
-    gap = max(left.start_ms, right.start_ms) - min(left.end_ms, right.end_ms)
-    if gap > tolerance_ms:
-        return None
-    return 0.25 * max(0.0, 1.0 - (gap / (tolerance_ms + 1)))
-
-
-def _match_audio_annotations(
-    left: tuple[AudioAnnotation, ...],
-    right: tuple[AudioAnnotation, ...],
-    tolerance_ms: int,
-) -> tuple[tuple[int, int, float], ...]:
-    candidates: list[tuple[float, int, int]] = []
-    for left_index, left_annotation in enumerate(left):
-        for right_index, right_annotation in enumerate(right):
-            similarity = _annotation_temporal_similarity(
-                left_annotation,
-                right_annotation,
-                tolerance_ms,
-            )
-            if similarity is not None:
-                candidates.append((similarity, left_index, right_index))
-
-    candidates.sort(key=lambda item: (-item[0], item[1], item[2]))
-    used_left: set[int] = set()
-    used_right: set[int] = set()
-    matches: list[tuple[int, int, float]] = []
-    for similarity, left_index, right_index in candidates:
-        if left_index in used_left or right_index in used_right:
-            continue
-        used_left.add(left_index)
-        used_right.add(right_index)
-        matches.append((left_index, right_index, similarity))
-    return tuple(matches)
-
-
 def _audio_evidence(evaluator_id: str, annotation: AudioAnnotation) -> AudioEvidence:
     return AudioEvidence(
         evaluator_id=evaluator_id,
@@ -320,22 +251,22 @@ def _audio_pair_drilldown(
             raise TypeError("audio disagreement drill-down requires scalar audio records")
         left_annotations = left.record.audio_annotations
         right_annotations = right.record.audio_annotations
-        matches = _match_audio_annotations(left_annotations, right_annotations, tolerance_ms)
-        matched_left = {left_index for left_index, _, _ in matches}
-        matched_right = {right_index for _, right_index, _ in matches}
+        matches = match_audio_annotations(left_annotations, right_annotations, tolerance_ms)
+        matched_left = {match.left_index for match in matches}
+        matched_right = {match.right_index for match in matches}
 
         variances: list[MatchedAudioVariance] = []
-        for left_index, right_index, similarity in matches:
-            left_annotation = left_annotations[left_index]
-            right_annotation = right_annotations[right_index]
+        for match in matches:
+            left_annotation = left_annotations[match.left_index]
+            right_annotation = right_annotations[match.right_index]
             severity_match = left_annotation.severity is right_annotation.severity
-            if severity_match and abs(similarity - 1.0) < 1e-12:
+            if severity_match and abs(match.temporal_similarity - 1.0) < 1e-12:
                 continue
             variances.append(
                 MatchedAudioVariance(
                     left=_audio_evidence(left.evaluator_id, left_annotation),
                     right=_audio_evidence(right.evaluator_id, right_annotation),
-                    temporal_similarity=round(similarity, 4),
+                    temporal_similarity=round(match.temporal_similarity, 4),
                     severity_match=severity_match,
                 )
             )
