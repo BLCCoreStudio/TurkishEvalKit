@@ -415,7 +415,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "import":
         try:
-            summary = import_workspace_file(
+            import_summary = import_workspace_file(
                 _resolved_workspace(args.workspace),
                 args.input,
                 input_format=args.input_format,
@@ -423,10 +423,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except (OSError, TypeError, ValueError) as exc:
             parser.exit(2, f"error: {exc}\n")
-        prefix = "would import" if summary.dry_run else "imported"
+        prefix = "would import" if import_summary.dry_run else "imported"
         print(
-            f"{prefix} {summary.imported_count}/{summary.total_records} record(s) · "
-            f"{summary.duplicate_count} duplicate(s)"
+            f"{prefix} {import_summary.imported_count}/{import_summary.total_records} record(s) · "
+            f"{import_summary.duplicate_count} duplicate(s)"
         )
         return 0
 

@@ -89,6 +89,7 @@ def _unwrap_record_object(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _records_from_json_value(value: Any) -> tuple[SubmissionRecord, ...]:
+    raw_records: list[Any]
     if isinstance(value, list):
         raw_records = value
     elif isinstance(value, dict) and value.get("schema") == INTERCHANGE_SCHEMA:
@@ -97,9 +98,10 @@ def _records_from_json_value(value: Any) -> tuple[SubmissionRecord, ...]:
                 "unsupported interchange schema_version: "
                 f"{value.get('schema_version')!r}; expected {INTERCHANGE_SCHEMA_VERSION!r}"
             )
-        raw_records = value.get("records")
-        if not isinstance(raw_records, list):
+        bundle_records = value.get("records")
+        if not isinstance(bundle_records, list):
             raise ValueError("interchange bundle records must be a list")
+        raw_records = bundle_records
         raw_count = value.get("record_count")
         if isinstance(raw_count, bool) or not isinstance(raw_count, int):
             raise ValueError("interchange bundle record_count must be an integer")
