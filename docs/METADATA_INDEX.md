@@ -101,7 +101,7 @@ metadata index exists?
              └─ no ──────────→ canonical JSON scan
 ```
 
-A stale or corrupt index is never used merely because it exists.
+A stale or corrupt index is never used merely because it exists. The indexed read verifies freshness before reading rows and checks the canonical-source fingerprint again before returning the cached projection, reducing the window in which a concurrent canonical write could expose stale cache data.
 
 The review queue already consumes `list_history()`, so it automatically receives the same safe acceleration when a fresh index is present.
 
@@ -109,7 +109,9 @@ The review queue already consumes `list_history()`, so it automatically receives
 
 `index rebuild` always starts from a canonical history scan. It does not rebuild from the previous database.
 
-The new database is written to a temporary sibling SQLite file and atomically replaces the old index only after the rebuild succeeds.
+The CLI captures the canonical source fingerprint before scanning. The SQLite writer verifies that the same source snapshot still exists before writing and again immediately before atomically publishing the new database. If evaluation/workflow/revision files change during the rebuild, the operation fails and no new index is published; the caller can retry against the newer canonical state.
+
+The new database is written to a temporary sibling SQLite file and atomically replaces the old index only after the rebuild succeeds. SQLite connections are closed before replacement so the lifecycle also works correctly on platforms with stricter file-lock semantics.
 
 If the rebuild fails, the existing canonical artifacts are untouched.
 
