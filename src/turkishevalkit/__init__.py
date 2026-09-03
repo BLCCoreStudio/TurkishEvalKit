@@ -35,6 +35,18 @@ from .interchange import (
     render_interchange,
     write_interchange_records,
 )
+from .metadata_index import (
+    METADATA_INDEX_SCHEMA_VERSION,
+    MetadataIndexState,
+    MetadataIndexStatus,
+    clear_metadata_index,
+    load_indexed_history,
+    metadata_index_path,
+    metadata_index_status,
+    metadata_index_status_to_dict,
+    rebuild_metadata_index,
+    workspace_metadata_fingerprint,
+)
 from .models import (
     AudioAnnotation,
     AudioIssueCategory,
@@ -77,6 +89,7 @@ __all__ = [
     "AUDIO_QUALITY_RUBRIC",
     "INTERCHANGE_SCHEMA",
     "INTERCHANGE_SCHEMA_VERSION",
+    "METADATA_INDEX_SCHEMA_VERSION",
     "PAIRWISE_QUALITY_RUBRIC",
     "TEXT_QUALITY_RUBRIC",
     "ActorRole",
@@ -101,6 +114,8 @@ __all__ = [
     "EvaluatorObservation",
     "EvaluatorSubmission",
     "MatchedAudioVariance",
+    "MetadataIndexState",
+    "MetadataIndexStatus",
     "OverallPreferenceDifference",
     "PairwiseEvaluationRecord",
     "PairwiseEvaluationResult",
@@ -122,6 +137,7 @@ __all__ = [
     "build_calibration_report",
     "build_disagreement_report",
     "build_population_reliability_report",
+    "clear_metadata_index",
     "create_workflow",
     "evaluate_pairwise_submission",
     "evaluate_submission",
@@ -129,14 +145,20 @@ __all__ = [
     "import_workspace_file",
     "import_workspace_records",
     "interchange_payload",
+    "load_indexed_history",
     "load_interchange_records",
     "load_workspace_records",
+    "metadata_index_path",
+    "metadata_index_status",
+    "metadata_index_status_to_dict",
     "parse_interchange_text",
+    "rebuild_metadata_index",
     "record_digest",
     "render_interchange",
     "review_workflow",
     "submit_workflow",
+    "workspace_metadata_fingerprint",
     "write_interchange_records",
 ]
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
