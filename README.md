@@ -4,11 +4,11 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Human-in-the-loop evaluation toolkit for Turkish AI text, audio, pairwise review, calibration, repeated-task reliability, immutable review workflows, portable datasets, and local QA operations.**
+**Human-in-the-loop evaluation toolkit for Turkish AI text, audio, pairwise review, calibration, repeated-task reliability, immutable review workflows, portable datasets, rebuildable metadata indexing, and local QA operations.**
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into inspectable local artifacts. It is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending an automated heuristic can replace the evaluator.
 
-> **Status:** alpha (`0.11.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, versioned evaluation-dataset interchange, JSON/JSONL/CLI interfaces, and localhost-only browser tools.
+> **Status:** alpha (`0.12.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, versioned evaluation-dataset interchange, optional rebuildable metadata indexing, JSON/JSONL/CLI interfaces, and localhost-only browser tools.
 
 ## Why this exists
 
@@ -28,6 +28,7 @@ The project separates:
 - **disagreement exploration** — criterion/evaluator/evidence drill-down;
 - **population reliability** — repeated-task agreement statistics under explicit assumptions;
 - **interchange** — portable evaluator records without importing untrusted workflow state;
+- **metadata indexing** — optional disposable acceleration over canonical local artifacts;
 - **interfaces** — CLI and local browser adapters over the same domain engines.
 
 ## Current capabilities
@@ -107,7 +108,7 @@ See [`docs/DISAGREEMENT_EXPLORER.md`](docs/DISAGREEMENT_EXPLORER.md).
 
 Population reliability is **not** another single-task calibration score. It analyzes a repeated-task dataset containing multiple independently rated task units.
 
-Current `0.11.x` metrics:
+Current `0.12.x` metrics:
 
 - **Krippendorff's alpha**
   - ordinal alpha for scalar `1..5` rubric criteria;
@@ -157,6 +158,20 @@ TurkishEvalKit can move evaluator-authored records between files and local works
 - Imported records intentionally receive no workflow sidecar, so external evaluator/reviewer state is never silently trusted.
 
 See [`docs/INTERCHANGE.md`](docs/INTERCHANGE.md).
+
+### Optional rebuildable metadata index
+
+Large read-heavy workspaces can opt into a disposable SQLite metadata snapshot.
+
+- No index is created automatically.
+- Canonical evaluation/workflow/revision JSON remains the only source of truth.
+- Rebuilds start from the normal canonical history scanner.
+- A cheap path/size/`mtime_ns` fingerprint detects ordinary source changes without reparsing all JSON.
+- `fresh` indexes accelerate history and therefore the review queue.
+- `absent`, `stale`, or `corrupt` indexes are ignored and history falls back to canonical JSON automatically.
+- Clearing the index never deletes canonical artifacts.
+
+See [`docs/METADATA_INDEX.md`](docs/METADATA_INDEX.md).
 
 ## Quick start
 
@@ -251,6 +266,28 @@ turkisheval import dataset.json --workspace ./other-workspace
 
 Interchange never imports external workflow/reviewer state as trusted local process history.
 
+## Optional metadata index from the CLI
+
+Inspect whether an index exists and is usable:
+
+```bash
+turkisheval index status --workspace ./my-evaluations
+```
+
+Build it from canonical JSON artifacts:
+
+```bash
+turkisheval index rebuild --workspace ./my-evaluations
+```
+
+Delete only the disposable cache:
+
+```bash
+turkisheval index clear --workspace ./my-evaluations
+```
+
+A source change makes the snapshot stale. Stale/corrupt indexes are never used as fallback truth.
+
 ## Local workbench
 
 Install the optional UI dependency:
@@ -330,29 +367,31 @@ Reliability coefficients describe properties of repeated human ratings. Negative
 
 ## Local storage and privacy
 
-Workbench-managed artifact classes remain separate:
+Workbench-managed authoritative artifact classes remain separate from disposable cache state:
 
 ```text
 <workspace>/
 ├── evaluations/
-│   └── <task>-<timestamp>.json
+│   └── <task>-<timestamp-or-import-digest>.json
 ├── workflows/
 │   └── <task>-<timestamp>.workflow.json
 ├── revisions/
 │   └── <task>-<timestamp>.revision.json
-└── calibrations/
-    └── <task>-<timestamp>.calibration.json
+├── calibrations/
+│   └── <task>-<timestamp>.calibration.json
+└── indexes/
+    └── metadata.sqlite3   # optional, disposable, rebuildable
 ```
 
 Evaluation artifacts are append-only. Workflow sidecars advance state while retaining the event chain. Revision sidecars are immutable lineage metadata. Calibration reports are append-only derived artifacts. Queue and disagreement-explorer state are read-time projections.
 
-Population reliability reports are portable CLI/library outputs; TurkishEvalKit does not create a hidden persistent reliability database. Interchange datasets are explicit user-selected exports, not a hidden synchronization store.
+Population reliability reports are portable CLI/library outputs; TurkishEvalKit does not create a hidden persistent reliability database. Interchange datasets are explicit user-selected exports, not a hidden synchronization store. The metadata SQLite file is a cache and may be deleted at any time.
 
 The local interfaces:
 
 - perform no external LLM calls;
 - have no telemetry;
-- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, disagreement evidence, calibration reports, reliability datasets, or interchange datasets;
+- do not upload prompts, responses, evaluator IDs, audio references, revision data, queue filters, disagreement evidence, calibration reports, reliability datasets, interchange datasets, or metadata-index content;
 - do not copy referenced audio into evaluation history.
 
 A local-only design is not a substitute for organizational access control. Process only material you are authorized to access and follow applicable retention/privacy requirements.
@@ -362,7 +401,8 @@ A local-only design is not a substitute for organizational access control. Proce
 ```text
 immutable evaluation r0
         │
-        ├─ workflow → queue projection → next human action
+        ├─ workflow → history projection → optional disposable metadata index
+        │                              └→ queue projection → next human action
         ├─ review → accept / escalate → optional adjudication
         ├─ review → request_changes → immutable evaluation r1 → new workflow
         ├─ same-stimulus peer evaluations → calibration report → disagreement explorer
@@ -377,7 +417,7 @@ applicability checks + reliability coefficients
 portable PopulationReliabilityReport
 ```
 
-Population reliability consumes evaluation submissions but does not rewrite evaluation, workflow, revision, queue, calibration, or disagreement artifacts. Interchange export/import likewise preserves the trust boundary around server-owned process metadata.
+Population reliability consumes evaluation submissions but does not rewrite evaluation, workflow, revision, queue, calibration, or disagreement artifacts. Interchange export/import likewise preserves the trust boundary around server-owned process metadata. Metadata indexing stores only a rebuildable projection and never repairs or replaces canonical artifacts.
 
 ## Non-goals
 
@@ -399,6 +439,7 @@ TurkishEvalKit does **not** currently:
 - persist queue priority or disagreement hotspot order as independent workflow truth;
 - create parallel revision branches or automatically merge competing revisions;
 - import external workflow/reviewer metadata as trusted local process state;
+- treat the metadata index as authoritative workflow/evaluation storage;
 - synchronize workspaces through a hidden remote dataset service.
 
 These are intentional boundaries. Human judgment remains explicit and the audit trail remains inspectable.
@@ -423,7 +464,7 @@ CI validates:
 - real localhost HTTP/persistence flows;
 - desktop and mobile Chromium workbench flows.
 
-Feature-specific gates additionally validate calibration, disagreement drill-down, immutable revision lineage, review queue behavior, and population reliability semantics/public API/wheel packaging.
+Feature-specific gates additionally validate calibration, disagreement drill-down, immutable revision lineage, review queue behavior, population reliability, evaluation interchange, and rebuildable metadata-index semantics/public API/wheel packaging.
 
 ## Project map
 
@@ -437,6 +478,7 @@ src/turkishevalkit/
 ├── disagreement.py            # evidence-level calibration drill-down
 ├── reliability.py             # repeated-task population reliability
 ├── interchange.py             # versioned dataset import/export boundary
+├── metadata_index.py          # optional disposable SQLite history cache
 ├── calibration_dashboard.py   # calibration history/explorer adapter
 ├── workflow.py                # review/revision/adjudication lifecycle
 ├── revision.py                # immutable superseding-artifact lineage
@@ -461,6 +503,7 @@ src/turkishevalkit/
 - [`docs/DISAGREEMENT_EXPLORER.md`](docs/DISAGREEMENT_EXPLORER.md)
 - [`docs/RELIABILITY.md`](docs/RELIABILITY.md)
 - [`docs/INTERCHANGE.md`](docs/INTERCHANGE.md)
+- [`docs/METADATA_INDEX.md`](docs/METADATA_INDEX.md)
 - [`docs/WORKBENCH.md`](docs/WORKBENCH.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
@@ -468,10 +511,9 @@ src/turkishevalkit/
 
 Near-term work remains ordered around evaluator correctness rather than surface area:
 
-1. optional rebuildable metadata indexing only when local workspace scale justifies it;
-2. an optional browser reliability workspace that reuses the `reliability.py` core instead of duplicating statistics;
-3. explicit branching semantics only if real collaborative revision use cases justify the complexity;
-4. shared audio-alignment primitives if additional evidence consumers need timestamp matching beyond calibration/explorer paths.
+1. an optional browser reliability workspace that reuses the `reliability.py` core instead of duplicating statistics;
+2. explicit branching semantics only if real collaborative revision use cases justify the complexity;
+3. shared audio-alignment primitives if additional evidence consumers need timestamp matching beyond calibration/explorer paths.
 
 ## License
 
