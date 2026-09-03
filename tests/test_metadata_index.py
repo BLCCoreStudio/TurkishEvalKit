@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from turkishevalkit.metadata_index import (
     metadata_index_path,
     metadata_index_status,
     rebuild_metadata_index,
+    workspace_metadata_fingerprint,
 )
 from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
 from turkishevalkit.serialization import load_record
@@ -24,6 +26,17 @@ def _save_text_result(workspace: Path) -> Path:
     record = load_record(Path("examples/text-evaluation.json"))
     result = evaluate_submission(record, TEXT_QUALITY_RUBRIC)
     return workbench.save_result(workspace, result)
+
+
+def _rebuild(workspace: Path) -> object:
+    fingerprint, source_file_count = workspace_metadata_fingerprint(workspace)
+    entries = workbench.scan_history(workspace)
+    return rebuild_metadata_index(
+        workspace,
+        entries,
+        expected_source_fingerprint=fingerprint,
+        expected_source_file_count=source_file_count,
+    )
 
 
 def test_index_is_opt_in_and_absent_by_default(tmp_path: Path) -> None:
@@ -42,7 +55,7 @@ def test_rebuild_creates_fresh_equivalent_history_snapshot(tmp_path: Path) -> No
     _save_text_result(tmp_path)
     canonical = workbench.scan_history(tmp_path)
 
-    status = rebuild_metadata_index(tmp_path, canonical)
+    status = _rebuild(tmp_path)
     indexed = load_indexed_history(tmp_path)
 
     assert status.state is MetadataIndexState.FRESH
@@ -58,7 +71,7 @@ def test_fresh_index_avoids_canonical_history_scan(
 ) -> None:
     _save_text_result(tmp_path)
     canonical = workbench.scan_history(tmp_path)
-    rebuild_metadata_index(tmp_path, canonical)
+    _rebuild(tmp_path)
 
     def fail_scan(_workspace: Path) -> list[dict[str, object]]:
         raise AssertionError("fresh metadata index should avoid canonical JSON history scan")
@@ -68,9 +81,26 @@ def test_fresh_index_avoids_canonical_history_scan(
     assert workbench.list_history(tmp_path) == canonical
 
 
+def test_rebuild_rejects_source_snapshot_change(tmp_path: Path) -> None:
+    _save_text_result(tmp_path)
+    fingerprint, source_file_count = workspace_metadata_fingerprint(tmp_path)
+    entries = workbench.scan_history(tmp_path)
+    _save_text_result(tmp_path)
+
+    with pytest.raises(ValueError, match="canonical history changed"):
+        rebuild_metadata_index(
+            tmp_path,
+            entries,
+            expected_source_fingerprint=fingerprint,
+            expected_source_file_count=source_file_count,
+        )
+
+    assert metadata_index_status(tmp_path).state is MetadataIndexState.ABSENT
+
+
 def test_source_change_marks_index_stale_and_history_falls_back(tmp_path: Path) -> None:
     _save_text_result(tmp_path)
-    rebuild_metadata_index(tmp_path, workbench.scan_history(tmp_path))
+    _rebuild(tmp_path)
     assert metadata_index_status(tmp_path).state is MetadataIndexState.FRESH
 
     _save_text_result(tmp_path)
@@ -90,7 +120,7 @@ def test_workflow_change_marks_index_stale(tmp_path: Path) -> None:
         evaluator_id="evaluator-index",
     )
     workbench.save_workflow(tmp_path, workflow)
-    rebuild_metadata_index(tmp_path, workbench.scan_history(tmp_path))
+    _rebuild(tmp_path)
     assert metadata_index_status(tmp_path).state is MetadataIndexState.FRESH
 
     submitted = workbench.submit_workflow(workflow, actor_id="evaluator-index")
@@ -104,10 +134,10 @@ def test_workflow_change_marks_index_stale(tmp_path: Path) -> None:
 def test_schema_mismatch_is_stale_and_never_read_as_history(tmp_path: Path) -> None:
     _save_text_result(tmp_path)
     canonical = workbench.scan_history(tmp_path)
-    rebuild_metadata_index(tmp_path, canonical)
+    _rebuild(tmp_path)
     path = metadata_index_path(tmp_path)
 
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection:
         connection.execute(
             "UPDATE metadata SET value = ? WHERE key = 'schema_version'",
             (str(METADATA_INDEX_SCHEMA_VERSION + 1),),
@@ -137,7 +167,7 @@ def test_corrupt_index_never_hides_canonical_history(tmp_path: Path) -> None:
 
 def test_clear_removes_only_rebuildable_index(tmp_path: Path) -> None:
     evaluation = _save_text_result(tmp_path)
-    rebuild_metadata_index(tmp_path, workbench.scan_history(tmp_path))
+    _rebuild(tmp_path)
 
     assert clear_metadata_index(tmp_path) is True
     assert metadata_index_status(tmp_path).state is MetadataIndexState.ABSENT
