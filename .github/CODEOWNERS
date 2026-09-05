@@ -1,0 +1,9 @@
+# Default ownership
+* @BLCCoreStudio
+
+# Evaluation methodology and release-critical surfaces
+/.github/ @BLCCoreStudio
+/pyproject.toml @BLCCoreStudio
+/src/ @BLCCoreStudio
+/tests/ @BLCCoreStudio
+/docs/ @BLCCoreStudio
