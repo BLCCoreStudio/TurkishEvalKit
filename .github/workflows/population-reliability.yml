@@ -6,9 +6,9 @@ on:
     paths:
       - ".github/workflows/population-reliability.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/reliability.py"
-      - "src/turkishevalkit/cli.py"
-      - "src/turkishevalkit/__init__.py"
+      - "src/turkishqualitykit/reliability.py"
+      - "src/turkishqualitykit/cli.py"
+      - "src/turkishqualitykit/__init__.py"
       - "examples/reliability-text.json"
       - "tests/test_reliability.py"
       - "tests/test_reliability_edges.py"
@@ -17,9 +17,9 @@ on:
     paths:
       - ".github/workflows/population-reliability.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/reliability.py"
-      - "src/turkishevalkit/cli.py"
-      - "src/turkishevalkit/__init__.py"
+      - "src/turkishqualitykit/reliability.py"
+      - "src/turkishqualitykit/cli.py"
+      - "src/turkishqualitykit/__init__.py"
       - "examples/reliability-text.json"
       - "tests/test_reliability.py"
       - "tests/test_reliability_edges.py"
@@ -58,7 +58,7 @@ jobs:
       - name: Public API imports
         run: |
           python - <<'PY'
-          from turkishevalkit import (
+          from turkishqualitykit import (
               PopulationReliabilityReport,
               PopulationReliabilitySpec,
               ReliabilityEstimate,
@@ -75,7 +75,7 @@ jobs:
 
       - name: CLI example
         run: |
-          turkisheval reliability examples/reliability-text.json --json > /tmp/reliability.json
+          turkishquality reliability examples/reliability-text.json --json > /tmp/reliability.json
           python - <<'PY'
           import json
 
@@ -88,14 +88,14 @@ jobs:
 
       - name: Wheel module smoke
         run: |
-          rm -rf /tmp/turkishevalkit-reliability-wheel
-          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-reliability-wheel
+          rm -rf /tmp/turkishqualitykit-reliability-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishqualitykit-reliability-wheel
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
-          wheel = next(Path("/tmp/turkishevalkit-reliability-wheel").glob("turkishevalkit-*.whl"))
+          wheel = next(Path("/tmp/turkishqualitykit-reliability-wheel").glob("turkishqualitykit-*.whl"))
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
-          assert "turkishevalkit/reliability.py" in names
+          assert "turkishqualitykit/reliability.py" in names
           PY
