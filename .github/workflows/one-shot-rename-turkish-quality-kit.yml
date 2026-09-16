@@ -48,8 +48,6 @@ jobs:
           tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
           tracked = [path for path in tracked if path]
 
-          # Rename tracked paths first so imports, package data and build metadata can
-          # be updated without leaving a duplicate package tree behind.
           for old_path in sorted(tracked, key=len, reverse=True):
               if OLD_DIR not in old_path:
                   continue
@@ -70,13 +68,11 @@ jobs:
               if b"\0" in data:
                   continue
               try:
-                  text = data.decode("utf-8")
+                  original = data.decode("utf-8")
               except UnicodeDecodeError:
                   continue
 
-              # Keep the public repository slug stable while the submitted job
-              # application still references it. The product/package/CLI branding
-              # is renamed in this branch; repository cutover happens separately.
+              text = original
               protected = {}
               for index, slug in enumerate(REPO_SLUGS):
                   token = f"__BLC_REPO_SLUG_{index}__"
@@ -94,18 +90,13 @@ jobs:
               for token, slug in protected.items():
                   updated = updated.replace(token, slug)
 
-              if updated != text:
-                  # `text` currently contains protected placeholders, so compare
-                  # against the actual original content instead.
-                  pass
-              original = data.decode("utf-8")
               if updated != original:
                   path.write_text(updated, encoding="utf-8")
                   changed_files.append(raw_path)
 
           plan = Path("docs/RENAME_TO_TURKISH_QUALITY_KIT.md")
           plan.write_text(
-              """# TurkishQualityKit rename staging\n\n"
+              "# TurkishQualityKit rename staging\n\n"
               "This branch stages the public product rename from **TurkishEvalKit** to "
               "**TurkishQualityKit** without changing the GitHub repository slug yet.\n\n"
               "## Staged names\n\n"
@@ -118,12 +109,10 @@ jobs:
               "application is under review and references that public URL. Repository rename "
               "and URL cleanup should be done only at the final cutover.\n\n"
               "This branch is not the default branch and is not intended to be merged until "
-              "the external application-name consistency concern is no longer relevant.\n"
-              """,
+              "the external application-name consistency concern is no longer relevant.\n",
               encoding="utf-8",
           )
           subprocess.run(["git", "add", "docs/RENAME_TO_TURKISH_QUALITY_KIT.md"], check=True)
-
           print(f"Updated {len(changed_files)} tracked text files with {replacement_count} replacements.")
           PY
 
@@ -135,8 +124,32 @@ jobs:
           test ! -e src/turkishevalkit
           grep -q 'turkishqualitykit' pyproject.toml
           grep -q 'turkishquality' pyproject.toml
-          ! grep -R --line-number --exclude='RENAME_TO_TURKISH_QUALITY_KIT.md' --exclude='one-shot-rename-turkish-quality-kit.yml' \
-            -E 'TurkishEvalKit|turkishevalkit|turkisheval' src tests examples docs .github pyproject.toml README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md SUPPORT.md 2>/dev/null
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          allowed_slug = "BLCCoreStudio/TurkishEvalKit"
+          old_tokens = ("TurkishEvalKit", "turkishevalkit", "turkisheval")
+          offenders = []
+          tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+          for raw_path in filter(None, tracked):
+              path = Path(raw_path)
+              if path.name in {"one-shot-rename-turkish-quality-kit.yml", "RENAME_TO_TURKISH_QUALITY_KIT.md"}:
+                  continue
+              data = path.read_bytes()
+              if b"\0" in data:
+                  continue
+              try:
+                  text = data.decode("utf-8")
+              except UnicodeDecodeError:
+                  continue
+              text = text.replace(allowed_slug, "__REPOSITORY_SLUG__")
+              for token in old_tokens:
+                  if token in text:
+                      offenders.append(f"{raw_path}: {token}")
+          if offenders:
+              raise SystemExit("stale rename tokens:\n" + "\n".join(offenders))
+          PY
 
       - name: Install development dependencies
         run: python -m pip install --disable-pip-version-check -e ".[dev]"
