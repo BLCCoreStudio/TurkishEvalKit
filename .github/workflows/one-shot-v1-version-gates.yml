@@ -1,0 +1,56 @@
+name: One-shot v1 version gate refresh
+
+on:
+  push:
+    branches:
+      - release/v1-readiness
+    paths:
+      - .github/workflows/one-shot-v1-version-gates.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-version-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: release/v1-readiness
+          fetch-depth: 0
+
+      - name: Align explicit v1 version assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          old = '__version__ == "0.13.0"'
+          new = '__version__ == "1.0.0"'
+          changed = []
+          for path in Path('.github/workflows').glob('*.yml'):
+              if path.name == 'one-shot-v1-version-gates.yml':
+                  continue
+              text = path.read_text(encoding='utf-8')
+              updated = text.replace(old, new)
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+                  changed.append(str(path))
+          if not changed:
+              raise SystemExit('no pre-v1 version assertions found')
+          print('\n'.join(changed))
+          PY
+
+      - name: Verify no stale pre-v1 assertion remains
+        run: |
+          ! grep -R --line-number '__version__ == "0.13.0"' .github/workflows --include='*.yml'
+
+      - name: Commit refreshed gates and remove this one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows
+          git rm .github/workflows/one-shot-v1-version-gates.yml
+          git commit -m "ci: align workflow version assertions with v1"
+          git push origin HEAD:release/v1-readiness
