@@ -1,4 +1,4 @@
-"""Command-line interface for TurkishEvalKit."""
+"""Command-line interface for TurkishQualityKit."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ def _add_workspace_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--workspace",
         type=Path,
-        help="Local TurkishEvalKit workspace. Defaults to the platform data directory.",
+        help="Local TurkishQualityKit workspace. Defaults to the platform data directory.",
     )
 
 
@@ -96,7 +96,7 @@ def _resolved_workspace(path: Path | None) -> Path:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="turkisheval",
+        prog="turkishquality",
         description="Human-in-the-loop evaluation utilities for Turkish AI quality.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)

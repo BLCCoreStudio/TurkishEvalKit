@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-import turkishevalkit.review_queue_app as queue_app
+import turkishqualitykit.review_queue_app as queue_app
 
 
 def _payload(*, evaluator_id: str = "eval-01", session_id: str = "session-01") -> dict[str, Any]:

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.cli import main
+from turkishqualitykit.cli import main
 
 
 def test_rubrics_command_lists_builtins(capsys: pytest.CaptureFixture[str]) -> None:
@@ -132,7 +132,7 @@ def test_workbench_command_delegates_to_local_runner(
             }
         )
 
-    monkeypatch.setattr("turkishevalkit.workbench.run_workbench", fake_run)
+    monkeypatch.setattr("turkishqualitykit.workbench.run_workbench", fake_run)
 
     assert (
         main(

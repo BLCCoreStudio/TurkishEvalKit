@@ -4,28 +4,28 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.evaluation import evaluate_submission
-from turkishevalkit.models import (
+from turkishqualitykit.evaluation import evaluate_submission
+from turkishqualitykit.models import (
     AudioIssueCategory,
     AudioIssueSeverity,
     EvaluationType,
     PairwiseEvaluationRecord,
     Preference,
 )
-from turkishevalkit.pairwise import evaluate_pairwise_submission
-from turkishevalkit.rubrics import (
+from turkishqualitykit.pairwise import evaluate_pairwise_submission
+from turkishqualitykit.rubrics import (
     AUDIO_QUALITY_RUBRIC,
     PAIRWISE_QUALITY_RUBRIC,
     TEXT_QUALITY_RUBRIC,
 )
-from turkishevalkit.serialization import (
+from turkishqualitykit.serialization import (
     load_record,
     record_from_dict,
     workflow_from_dict,
     workflow_to_dict,
     write_result,
 )
-from turkishevalkit.workflow import (
+from turkishqualitykit.workflow import (
     AdjudicationOutcome,
     ReviewOutcome,
     adjudicate_workflow,

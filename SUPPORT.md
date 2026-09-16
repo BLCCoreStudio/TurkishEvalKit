@@ -1,6 +1,6 @@
 # Support
 
-TurkishEvalKit is maintained as a research-oriented open-source evaluation toolkit. Reports should contain enough evidence to distinguish implementation defects from disagreements about evaluation methodology.
+TurkishQualityKit is maintained as a research-oriented open-source evaluation toolkit. Reports should contain enough evidence to distinguish implementation defects from disagreements about evaluation methodology.
 
 ## Bugs
 

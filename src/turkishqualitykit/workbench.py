@@ -61,7 +61,7 @@ def default_workspace() -> Path:
     else:
         configured = os.environ.get("XDG_DATA_HOME")
         base = Path(configured) if configured else Path.home() / ".local" / "share"
-    return base / "turkishevalkit"
+    return base / "turkishqualitykit"
 
 
 def rubric_payload() -> list[dict[str, Any]]:
@@ -383,7 +383,7 @@ def create_app(workspace: Path | None = None) -> Flask:
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             'The local workbench requires the optional dependency. '
-            'Install with: python -m pip install "turkishevalkit[workbench]"'
+            'Install with: python -m pip install "turkishqualitykit[workbench]"'
         ) from exc
 
     resolved_workspace = (workspace or default_workspace()).expanduser().resolve()

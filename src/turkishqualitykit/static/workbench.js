@@ -66,29 +66,29 @@ function titleCaseToken(value) {
 }
 
 function loadSessionDefaults() {
-  const evaluatorId = localStorage.getItem("turkishevalkit.evaluatorId") || "evaluator-local";
-  const sessionId = localStorage.getItem("turkishevalkit.sessionId") || sessionIdFor();
+  const evaluatorId = localStorage.getItem("turkishqualitykit.evaluatorId") || "evaluator-local";
+  const sessionId = localStorage.getItem("turkishqualitykit.sessionId") || sessionIdFor();
   byId("evaluatorId").value = evaluatorId;
   byId("sessionId").value = sessionId;
-  localStorage.setItem("turkishevalkit.evaluatorId", evaluatorId);
-  localStorage.setItem("turkishevalkit.sessionId", sessionId);
+  localStorage.setItem("turkishqualitykit.evaluatorId", evaluatorId);
+  localStorage.setItem("turkishqualitykit.sessionId", sessionId);
 }
 
 function persistSessionFields() {
   const evaluatorId = byId("evaluatorId").value.trim();
   const sessionId = byId("sessionId").value.trim();
   if (evaluatorId) {
-    localStorage.setItem("turkishevalkit.evaluatorId", evaluatorId);
+    localStorage.setItem("turkishqualitykit.evaluatorId", evaluatorId);
   }
   if (sessionId) {
-    localStorage.setItem("turkishevalkit.sessionId", sessionId);
+    localStorage.setItem("turkishqualitykit.sessionId", sessionId);
   }
 }
 
 function newSession() {
   const sessionId = sessionIdFor();
   byId("sessionId").value = sessionId;
-  localStorage.setItem("turkishevalkit.sessionId", sessionId);
+  localStorage.setItem("turkishqualitykit.sessionId", sessionId);
   setWorkflowMessage("");
 }
 

@@ -1,6 +1,6 @@
 # Review and Adjudication Workflow
 
-TurkishEvalKit separates **evaluation evidence** from **workflow evidence**.
+TurkishQualityKit separates **evaluation evidence** from **workflow evidence**.
 
 A scored evaluation is an immutable artifact containing the evaluator's ratings or pairwise judgments, source/context, notes, rubric version, and deterministic aggregate. Review and adjudication are recorded in a separate workflow sidecar that references the saved evaluation artifact.
 
@@ -128,7 +128,7 @@ The workbench history therefore continues to show the evaluation and treats life
 
 `reviewed` is a valid terminal state when the reviewer chooses `accept`.
 
-TurkishEvalKit does not create a meaningless adjudication step merely to force every workflow to the same final label. Only explicit disagreement (`escalate`) creates an adjudication path.
+TurkishQualityKit does not create a meaningless adjudication step merely to force every workflow to the same final label. Only explicit disagreement (`escalate`) creates an adjudication path.
 
 ## No in-place revision loop yet
 
@@ -148,7 +148,7 @@ Until that model is specified and tested, `accept` and `escalate` are the only r
 
 Evaluator, reviewer, and adjudicator IDs are local audit identifiers. They are not authentication, signatures, or proof of real-world identity.
 
-TurkishEvalKit currently enforces role separation by comparing IDs within the workflow. A multi-user deployment requiring strong identity assurance should integrate an authenticated identity provider at a higher layer rather than treating local string identifiers as security credentials.
+TurkishQualityKit currently enforces role separation by comparing IDs within the workflow. A multi-user deployment requiring strong identity assurance should integrate an authenticated identity provider at a higher layer rather than treating local string identifiers as security credentials.
 
 ## Privacy
 

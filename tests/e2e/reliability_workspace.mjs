@@ -4,7 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseURL = process.env.WORKBENCH_URL || "http://127.0.0.1:8765";
-const artifacts = process.env.E2E_ARTIFACTS || "/tmp/turkisheval-reliability-e2e";
+const artifacts = process.env.E2E_ARTIFACTS || "/tmp/turkishquality-reliability-e2e";
 
 async function ensureNoHorizontalOverflow(page, label) {
   const dimensions = await page.evaluate(() => ({
@@ -38,7 +38,7 @@ async function exerciseDesktop(browser) {
   page.on("pageerror", (error) => browserErrors.push(error.message));
 
   await page.goto(`${baseURL}/reliability`, { waitUntil: "networkidle" });
-  assert.equal(await page.title(), "Reliability · TurkishEvalKit");
+  assert.equal(await page.title(), "Reliability · TurkishQualityKit");
   await page.locator("#reliabilityMessage").filter({ hasText: "3 ready task group(s) found." }).waitFor();
   assert.equal(await page.getByRole("link", { name: "Evaluations" }).isVisible(), true);
   assert.equal(await page.getByRole("link", { name: "Calibration" }).isVisible(), true);
@@ -76,7 +76,7 @@ async function exerciseDesktop(browser) {
   const downloadPromise = page.waitForEvent("download");
   await page.locator("#exportReliabilityJson").click();
   const download = await downloadPromise;
-  assert.match(download.suggestedFilename(), /^turkishevalkit-reliability-.*\.json$/);
+  assert.match(download.suggestedFilename(), /^turkishqualitykit-reliability-.*\.json$/);
   const downloadPath = path.join(artifacts, "reliability-report.json");
   await download.saveAs(downloadPath);
   const exported = JSON.parse(await fs.readFile(downloadPath, "utf8"));

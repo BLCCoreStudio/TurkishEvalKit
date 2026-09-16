@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "turkishevalkit"
+name = "turkishqualitykit"
 version = "1.0.0"
 description = "Human-in-the-loop Turkish AI evaluation workbench with portable datasets, rebuildable metadata indexing, reliability, review queues, calibration, and audio QA."
 readme = "README.md"
@@ -50,11 +50,11 @@ dev = [
 ]
 
 [project.scripts]
-turkisheval = "turkishevalkit.cli:main"
-turkisheval-queue = "turkishevalkit.review_queue_app:main"
+turkishquality = "turkishqualitykit.cli:main"
+turkishquality-queue = "turkishqualitykit.review_queue_app:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/turkishevalkit"]
+packages = ["src/turkishqualitykit"]
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
@@ -71,4 +71,4 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-packages = ["turkishevalkit"]
+packages = ["turkishqualitykit"]

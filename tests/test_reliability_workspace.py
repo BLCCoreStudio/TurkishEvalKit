@@ -5,19 +5,19 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.evaluation import evaluate_submission
-from turkishevalkit.reliability import (
+from turkishqualitykit.evaluation import evaluate_submission
+from turkishqualitykit.reliability import (
     build_population_reliability_report,
     load_reliability_spec,
     population_reliability_report_to_dict,
 )
-from turkishevalkit.reliability_workspace import (
+from turkishqualitykit.reliability_workspace import (
     build_workspace_reliability_report,
     list_reliability_candidate_groups,
     reliability_candidate_group_to_dict,
 )
-from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
-from turkishevalkit.workbench import create_app, create_workflow, save_result, save_workflow
+from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
+from turkishqualitykit.workbench import create_app, create_workflow, save_result, save_workflow
 
 
 def _populate_text_reliability_workspace(workspace: Path) -> None:

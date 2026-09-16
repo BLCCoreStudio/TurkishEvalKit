@@ -1,6 +1,6 @@
 # Population reliability
 
-TurkishEvalKit population reliability is a repeated-task analysis layer. It answers a different question from single-task calibration:
+TurkishQualityKit population reliability is a repeated-task analysis layer. It answers a different question from single-task calibration:
 
 - **calibration** asks how evaluators agreed or disagreed on one shared stimulus;
 - **population reliability** asks how consistently a rating process behaves across multiple independently rated task units.
@@ -22,7 +22,7 @@ A reliability specification contains:
 }
 ```
 
-Each task uses the same submission shape as calibration. Within one task, TurkishEvalKit requires:
+Each task uses the same submission shape as calibration. Within one task, TurkishQualityKit requires:
 
 - at least two evaluator submissions;
 - unique evaluator IDs;
@@ -42,7 +42,7 @@ This declared minimum is an **inclusion guardrail**, not a universal statistical
 
 ### Krippendorff's alpha
 
-TurkishEvalKit uses the general disagreement form:
+TurkishQualityKit uses the general disagreement form:
 
 ```text
 alpha = 1 - observed_disagreement / expected_disagreement
@@ -54,7 +54,7 @@ This allows alpha to remain applicable when evaluator counts or evaluator identi
 
 #### Scalar 1–5 ratings
 
-Scalar criteria use **ordinal** alpha. TurkishEvalKit does not silently treat the 1–5 scale as equally spaced interval data for alpha. Ordinal distance is derived from pooled category frequencies and category order.
+Scalar criteria use **ordinal** alpha. TurkishQualityKit does not silently treat the 1–5 scale as equally spaced interval data for alpha. Ordinal distance is derived from pooled category frequencies and category order.
 
 #### Pairwise A / Tie / B
 
@@ -62,7 +62,7 @@ Pairwise criterion preferences and the holistic overall preference use **nominal
 
 Pairwise preference strength (`1..3`) uses ordinal alpha.
 
-If the pooled data contain only one observed category, expected disagreement is zero. TurkishEvalKit reports alpha as not applicable instead of manufacturing `1.0` or another value.
+If the pooled data contain only one observed category, expected disagreement is zero. TurkishQualityKit reports alpha as not applicable instead of manufacturing `1.0` or another value.
 
 ## Fleiss' kappa
 
@@ -75,13 +75,13 @@ Assumptions recorded in every estimate:
 - evaluator identities may vary by task;
 - chance agreement is estimated from pooled category marginals.
 
-For scalar 1–5 criteria, TurkishEvalKit does **not** calculate Fleiss' kappa by default because doing so would silently discard the scale's ordinal structure.
+For scalar 1–5 criteria, TurkishQualityKit does **not** calculate Fleiss' kappa by default because doing so would silently discard the scale's ordinal structure.
 
 If the rater count varies by task, the Fleiss estimate is returned as not applicable. Krippendorff alpha may still be applicable for the same dataset.
 
 ## ICC(A,1)
 
-For scalar evaluations, TurkishEvalKit reports the two-way random-effects, absolute-agreement, single-measure intraclass correlation coefficient commonly denoted **ICC(A,1)**.
+For scalar evaluations, TurkishQualityKit reports the two-way random-effects, absolute-agreement, single-measure intraclass correlation coefficient commonly denoted **ICC(A,1)**.
 
 It is calculated for:
 
@@ -127,26 +127,26 @@ Every coefficient is represented as a `ReliabilityEstimate`:
 
 Consumers should check `applicable` before using `value`.
 
-A not-applicable metric is not a failed evaluation. It means the dataset design does not support that coefficient under TurkishEvalKit's documented assumptions.
+A not-applicable metric is not a failed evaluation. It means the dataset design does not support that coefficient under TurkishQualityKit's documented assumptions.
 
 ## CLI
 
 Run the self-authored example:
 
 ```bash
-turkisheval reliability examples/reliability-text.json
+turkishquality reliability examples/reliability-text.json
 ```
 
 Print the complete report:
 
 ```bash
-turkisheval reliability examples/reliability-text.json --json
+turkishquality reliability examples/reliability-text.json --json
 ```
 
 Write an auditable JSON report:
 
 ```bash
-turkisheval reliability examples/reliability-text.json --output reliability-report.json
+turkishquality reliability examples/reliability-text.json --output reliability-report.json
 ```
 
 ## Reliability workspace
@@ -206,7 +206,7 @@ The browser can export the returned report as an explicit JSON file. That export
 
 ## Interpretation boundary
 
-TurkishEvalKit deliberately does not:
+TurkishQualityKit deliberately does not:
 
 - declare a universal "good" alpha, kappa, or ICC threshold;
 - convert reliability coefficients into evaluator pass/fail decisions;
@@ -234,4 +234,4 @@ The implemented method names follow the established formulations associated with
 - Joseph L. Fleiss — fixed-marginal multi-rater kappa for nominal categories;
 - McGraw & Wong — intraclass correlation forms including two-way absolute-agreement single-measure ICC.
 
-TurkishEvalKit documents its exact applicability rules and formulas above so users do not need to infer which variant was selected.
+TurkishQualityKit documents its exact applicability rules and formulas above so users do not need to infer which variant was selected.

@@ -6,10 +6,10 @@ from typing import Any
 
 import pytest
 
-import turkishevalkit.workbench as workbench
-from turkishevalkit.evaluation import evaluate_submission
-from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
-from turkishevalkit.serialization import load_record
+import turkishqualitykit.workbench as workbench
+from turkishqualitykit.evaluation import evaluate_submission
+from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
+from turkishqualitykit.serialization import load_record
 
 
 def _text_payload() -> dict[str, Any]:
@@ -41,7 +41,7 @@ def test_default_workspace_honors_xdg_data_home(
         pytest.skip("XDG assertion is specific to Unix-like non-macOS runners")
 
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    assert workbench.default_workspace() == tmp_path / "turkishevalkit"
+    assert workbench.default_workspace() == tmp_path / "turkishqualitykit"
 
 
 def test_rubric_payload_exposes_task_family() -> None:
@@ -107,7 +107,7 @@ def test_workbench_routes_validate_save_list_and_export(tmp_path: Path) -> None:
 
     index = client.get("/")
     assert index.status_code == 200
-    assert b"TurkishEvalKit" in index.data
+    assert b"TurkishQualityKit" in index.data
     assert b"Pairwise" in index.data
 
     config = client.get("/api/config")

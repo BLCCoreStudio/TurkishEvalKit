@@ -1,6 +1,6 @@
 # Code of Conduct
 
-TurkishEvalKit is a professional, evidence-driven open-source project.
+TurkishQualityKit is a professional, evidence-driven open-source project.
 
 ## Expected behavior
 

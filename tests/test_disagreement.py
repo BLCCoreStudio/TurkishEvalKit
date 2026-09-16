@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.calibration import load_calibration_spec
-from turkishevalkit.disagreement import build_disagreement_report, disagreement_report_to_dict
-from turkishevalkit.rubrics import (
+from turkishqualitykit.calibration import load_calibration_spec
+from turkishqualitykit.disagreement import build_disagreement_report, disagreement_report_to_dict
+from turkishqualitykit.rubrics import (
     AUDIO_QUALITY_RUBRIC,
     PAIRWISE_QUALITY_RUBRIC,
     TEXT_QUALITY_RUBRIC,

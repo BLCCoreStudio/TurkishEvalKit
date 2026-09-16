@@ -102,4 +102,4 @@ For pairwise tasks, notes should identify the comparative evidence when possible
 
 ## Calibration
 
-Teams using TurkishEvalKit should calibrate evaluators on shared examples before comparing aggregate scores or pairwise preference rates. A rubric can standardize categories, but it cannot guarantee that two humans interpret those categories identically. Future multi-evaluator features should make disagreement visible rather than hiding it inside an average.
+Teams using TurkishQualityKit should calibrate evaluators on shared examples before comparing aggregate scores or pairwise preference rates. A rubric can standardize categories, but it cannot guarantee that two humans interpret those categories identically. Future multi-evaluator features should make disagreement visible rather than hiding it inside an average.

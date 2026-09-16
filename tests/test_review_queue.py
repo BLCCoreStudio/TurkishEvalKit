@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from turkishevalkit.review_queue import (
+from turkishqualitykit.review_queue import (
     QueueAction,
     QueueQuery,
     QueueSort,

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.cli import main
+from turkishqualitykit.cli import main
 
 
 def test_convert_command_writes_jsonl(
@@ -114,7 +114,7 @@ def test_export_command_writes_canonical_bundle(
     )
 
     payload = json.loads(destination.read_text(encoding="utf-8"))
-    assert payload["schema"] == "turkishevalkit.evaluation-dataset"
+    assert payload["schema"] == "turkishqualitykit.evaluation-dataset"
     assert payload["record_count"] == 1
     assert "exported 1 record(s)" in capsys.readouterr().out
 

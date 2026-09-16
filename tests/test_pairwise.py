@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from turkishevalkit.models import (
+from turkishqualitykit.models import (
     PairwiseEvaluationRecord,
     PairwiseJudgment,
     Preference,
 )
-from turkishevalkit.pairwise import evaluate_pairwise_submission
-from turkishevalkit.rubrics import PAIRWISE_QUALITY_RUBRIC
+from turkishqualitykit.pairwise import evaluate_pairwise_submission
+from turkishqualitykit.rubrics import PAIRWISE_QUALITY_RUBRIC
 
 
 def _record(*judgments: PairwiseJudgment) -> PairwiseEvaluationRecord:

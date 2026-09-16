@@ -16,7 +16,7 @@ from .pairwise import PairwiseEvaluationResult, evaluate_pairwise_submission
 from .rubrics import BUILTIN_RUBRICS
 from .serialization import SubmissionRecord, record_from_dict, result_to_dict
 
-INTERCHANGE_SCHEMA = "turkishevalkit.evaluation-dataset"
+INTERCHANGE_SCHEMA = "turkishqualitykit.evaluation-dataset"
 INTERCHANGE_SCHEMA_VERSION = "1.0"
 InputFormat = Literal["auto", "json", "jsonl"]
 OutputFormat = Literal["bundle", "array", "jsonl"]

@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import turkishevalkit.cli as cli
-import turkishevalkit.review_queue_app as queue_app
+import turkishqualitykit.cli as cli
+import turkishqualitykit.review_queue_app as queue_app
 
 
 def test_main_cli_queue_dispatches_to_local_queue(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from turkishevalkit.revision import (
+from turkishqualitykit.revision import (
     RevisionLineage,
     create_revision_lineage,
     revision_from_dict,

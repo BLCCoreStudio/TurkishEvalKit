@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-import turkishevalkit.workbench as workbench
-from turkishevalkit.evaluation import evaluate_submission
-from turkishevalkit.metadata_index import (
+import turkishqualitykit.workbench as workbench
+from turkishqualitykit.evaluation import evaluate_submission
+from turkishqualitykit.metadata_index import (
     METADATA_INDEX_SCHEMA_VERSION,
     MetadataIndexState,
     clear_metadata_index,
@@ -18,8 +18,8 @@ from turkishevalkit.metadata_index import (
     rebuild_metadata_index,
     workspace_metadata_fingerprint,
 )
-from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
-from turkishevalkit.serialization import load_record
+from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
+from turkishqualitykit.serialization import load_record
 
 
 def _save_text_result(workspace: Path) -> Path:

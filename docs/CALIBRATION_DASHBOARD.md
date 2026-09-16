@@ -1,8 +1,8 @@
 # Calibration dashboard and history
 
-The local workbench includes a dedicated `/calibration` workspace for comparing independent human evaluations that already exist in TurkishEvalKit's local history.
+The local workbench includes a dedicated `/calibration` workspace for comparing independent human evaluations that already exist in TurkishQualityKit's local history.
 
-The dashboard is an interface over the same calibration engine exposed by the Python API and `turkisheval calibrate`. It does not introduce a second scoring model and it does not alter source evaluations.
+The dashboard is an interface over the same calibration engine exposed by the Python API and `turkishquality calibrate`. It does not introduce a second scoring model and it does not alter source evaluations.
 
 ## Data flow
 
@@ -105,7 +105,7 @@ The localhost workbench exposes:
 | `GET /api/calibrations/<file>/details` | Read one saved calibration artifact |
 | `GET /api/calibrations/<file>/download` | Export one saved calibration artifact as JSON |
 
-These routes are available only through the same Flask process as the workbench. `turkisheval workbench` continues to bind to `127.0.0.1` by default.
+These routes are available only through the same Flask process as the workbench. `turkishquality workbench` continues to bind to `127.0.0.1` by default.
 
 ## Audio tolerance
 

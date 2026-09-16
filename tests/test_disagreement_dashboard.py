@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from turkishevalkit.workbench import create_app
+from turkishqualitykit.workbench import create_app
 
 
 def _evaluation_from_calibration_example(

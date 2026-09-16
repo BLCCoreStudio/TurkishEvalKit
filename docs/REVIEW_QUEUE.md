@@ -1,6 +1,6 @@
 # Review Queue
 
-TurkishEvalKit's review queue is an action-oriented view over saved evaluation, workflow, and revision artifacts. It does not introduce another workflow state machine and it does not mutate evaluation scores while filtering or sorting.
+TurkishQualityKit's review queue is an action-oriented view over saved evaluation, workflow, and revision artifacts. It does not introduce another workflow state machine and it does not mutate evaluation scores while filtering or sorting.
 
 ## Start the queue
 
@@ -13,13 +13,13 @@ python -m pip install -e ".[workbench]"
 Open the queue-first combined workbench:
 
 ```bash
-turkisheval-queue
+turkishquality-queue
 ```
 
 Use a dedicated workspace or port when needed:
 
 ```bash
-turkisheval-queue --workspace ./my-evaluations --port 8765
+turkishquality-queue --workspace ./my-evaluations --port 8765
 ```
 
 The server binds to `127.0.0.1` only. The queue is available at `/queue`; the normal workbench and calibration dashboard remain available from the same process.

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-import turkishevalkit.workbench as workbench
+import turkishqualitykit.workbench as workbench
 
 
 def _payload(*, session: str = "session-001", evaluator: str = "eval-01") -> dict[str, Any]:

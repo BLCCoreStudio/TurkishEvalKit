@@ -292,7 +292,7 @@ def create_calibration_blueprint(workspace: Path) -> Blueprint:
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             'The calibration dashboard requires the workbench dependency. '
-            'Install with: python -m pip install "turkishevalkit[workbench]"'
+            'Install with: python -m pip install "turkishqualitykit[workbench]"'
         ) from exc
 
     blueprint = Blueprint("calibration_dashboard", __name__)

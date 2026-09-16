@@ -1,6 +1,6 @@
 # Revision workflow
 
-TurkishEvalKit treats reviewer-requested changes as a new evaluation artifact, never an edit to previously saved human evidence.
+TurkishQualityKit treats reviewer-requested changes as a new evaluation artifact, never an edit to previously saved human evidence.
 
 ## Why revisions are separate artifacts
 

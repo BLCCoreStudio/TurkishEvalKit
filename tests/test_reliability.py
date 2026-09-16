@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.calibration import EvaluatorSubmission
-from turkishevalkit.models import (
+from turkishqualitykit.calibration import EvaluatorSubmission
+from turkishqualitykit.models import (
     EvaluationRecord,
     EvaluationType,
     PairwiseEvaluationRecord,
@@ -15,7 +15,7 @@ from turkishevalkit.models import (
     Rubric,
     RubricCriterion,
 )
-from turkishevalkit.reliability import (
+from turkishqualitykit.reliability import (
     PopulationReliabilitySpec,
     ReliabilityTask,
     build_population_reliability_report,

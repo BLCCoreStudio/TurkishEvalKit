@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import turkishevalkit.workbench as workbench
+import turkishqualitykit.workbench as workbench
 
 
 def _payload() -> dict[str, Any]:

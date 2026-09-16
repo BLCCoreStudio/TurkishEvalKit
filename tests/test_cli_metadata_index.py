@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.cli import main
-from turkishevalkit.evaluation import evaluate_submission
-from turkishevalkit.metadata_index import MetadataIndexState, metadata_index_status
-from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
-from turkishevalkit.serialization import load_record
-from turkishevalkit.workbench import save_result
+from turkishqualitykit.cli import main
+from turkishqualitykit.evaluation import evaluate_submission
+from turkishqualitykit.metadata_index import MetadataIndexState, metadata_index_status
+from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
+from turkishqualitykit.serialization import load_record
+from turkishqualitykit.workbench import save_result
 
 
 def _populate_workspace(workspace: Path) -> None:

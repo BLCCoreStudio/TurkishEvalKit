@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.calibration import (
+from turkishqualitykit.calibration import (
     EvaluatorSubmission,
     build_calibration_report,
     calibration_report_to_dict,
     load_calibration_spec,
     write_calibration_report,
 )
-from turkishevalkit.models import EvaluationRecord, Rating
-from turkishevalkit.rubrics import (
+from turkishqualitykit.models import EvaluationRecord, Rating
+from turkishqualitykit.rubrics import (
     AUDIO_QUALITY_RUBRIC,
     PAIRWISE_QUALITY_RUBRIC,
     TEXT_QUALITY_RUBRIC,

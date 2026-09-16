@@ -1,6 +1,6 @@
 # Multi-evaluator calibration
 
-TurkishEvalKit calibration compares **independent human judgments of the same evaluation stimulus**. It is designed to expose disagreement and help teams inspect rubric interpretation. It does not decide whether an evaluator is qualified, automatically overwrite an evaluation, or turn observed agreement into a pass/fail employment decision.
+TurkishQualityKit calibration compares **independent human judgments of the same evaluation stimulus**. It is designed to expose disagreement and help teams inspect rubric interpretation. It does not decide whether an evaluator is qualified, automatically overwrite an evaluation, or turn observed agreement into a pass/fail employment decision.
 
 ## Input boundary
 
@@ -52,32 +52,32 @@ Metadata may differ because evaluator-specific metadata is not the stimulus itse
 Text calibration:
 
 ```bash
-turkisheval calibrate examples/calibration-text.json
+turkishquality calibrate examples/calibration-text.json
 ```
 
 Complete JSON report:
 
 ```bash
-turkisheval calibrate examples/calibration-text.json --json
+turkishquality calibrate examples/calibration-text.json --json
 ```
 
 Write an artifact:
 
 ```bash
-turkisheval calibrate examples/calibration-audio.json --output calibration.json
+turkishquality calibrate examples/calibration-audio.json --output calibration.json
 ```
 
 Change the audio timestamp matching tolerance:
 
 ```bash
-turkisheval calibrate examples/calibration-audio.json --annotation-tolerance-ms 150
+turkishquality calibrate examples/calibration-audio.json --annotation-tolerance-ms 150
 ```
 
 The default audio tolerance is `250 ms`.
 
 ## Scalar text and audio agreement
 
-For every rubric criterion, TurkishEvalKit compares every unique evaluator pair.
+For every rubric criterion, TurkishQualityKit compares every unique evaluator pair.
 
 The report includes:
 

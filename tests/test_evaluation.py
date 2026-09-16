@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from turkishevalkit.evaluation import evaluate_submission
-from turkishevalkit.models import EvaluationRecord, EvaluationType, Rating
-from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
+from turkishqualitykit.evaluation import evaluate_submission
+from turkishqualitykit.models import EvaluationRecord, EvaluationType, Rating
+from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
 
 
 def _record(*ratings: Rating) -> EvaluationRecord:

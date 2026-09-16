@@ -345,7 +345,7 @@ function exportReport() {
   const link = document.createElement("a");
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   link.href = url;
-  link.download = `turkishevalkit-reliability-${timestamp}.json`;
+  link.download = `turkishqualitykit-reliability-${timestamp}.json`;
   document.body.append(link);
   link.click();
   link.remove();

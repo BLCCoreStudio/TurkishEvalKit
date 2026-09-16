@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.calibration import EvaluatorSubmission
-from turkishevalkit.models import EvaluationRecord, EvaluationType, Rating
-from turkishevalkit.reliability import (
+from turkishqualitykit.calibration import EvaluatorSubmission
+from turkishqualitykit.models import EvaluationRecord, EvaluationType, Rating
+from turkishqualitykit.reliability import (
     PopulationReliabilitySpec,
     ReliabilityEstimate,
     ReliabilityTask,
@@ -14,7 +14,7 @@ from turkishevalkit.reliability import (
     load_reliability_spec,
     reliability_spec_from_dict,
 )
-from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
+from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
 
 
 def _text_submission(task_id: str, evaluator_id: str, score: int) -> EvaluatorSubmission:

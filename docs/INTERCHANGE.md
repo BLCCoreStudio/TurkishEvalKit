@@ -1,7 +1,7 @@
 # Evaluation Dataset Interchange
 
-TurkishEvalKit adds a versioned, local-first interchange layer for moving
-**evaluator-authored evaluation records** between files and TurkishEvalKit workspaces.
+TurkishQualityKit adds a versioned, local-first interchange layer for moving
+**evaluator-authored evaluation records** between files and TurkishQualityKit workspaces.
 
 The interchange boundary intentionally excludes trusted workflow, review, adjudication,
 and revision state. Those relationships are server-owned process metadata and must not be
@@ -13,7 +13,7 @@ The preferred portable representation is a UTF-8 JSON object:
 
 ```json
 {
-  "schema": "turkishevalkit.evaluation-dataset",
+  "schema": "turkishqualitykit.evaluation-dataset",
   "schema_version": "1.0",
   "record_count": 2,
   "records": [
@@ -42,12 +42,12 @@ evaluation model.
 
 ## Accepted input forms
 
-`turkisheval convert` and `turkisheval import` can read:
+`turkishquality convert` and `turkishquality import` can read:
 
 - the canonical versioned bundle;
 - a JSON array of evaluation records;
 - one JSON evaluation record;
-- an existing TurkishEvalKit scored-result object containing a `payload` record;
+- an existing TurkishQualityKit scored-result object containing a `payload` record;
 - JSONL/NDJSON with one record or scored-result object per non-empty line.
 
 With `--input-format auto`, `.jsonl` and `.ndjson` files are treated as JSONL. Other files
@@ -63,19 +63,19 @@ audio evidence are therefore rejected at the same correctness boundary used else
 Convert any accepted representation to the canonical bundle:
 
 ```bash
-turkisheval convert input.json output.json
+turkishquality convert input.json output.json
 ```
 
 Convert to JSONL:
 
 ```bash
-turkisheval convert input.json output.jsonl --output-format jsonl
+turkishquality convert input.json output.jsonl --output-format jsonl
 ```
 
 Convert to a plain JSON array:
 
 ```bash
-turkisheval convert input.jsonl output.json --output-format array
+turkishquality convert input.jsonl output.json --output-format array
 ```
 
 Supported output formats are:
@@ -89,7 +89,7 @@ Outputs are written through a temporary sibling file and then replaced.
 ## Export a workspace
 
 ```bash
-turkisheval export \
+turkishquality export \
   --workspace ./my-evaluations \
   --output evaluations.json
 ```
@@ -97,7 +97,7 @@ turkisheval export \
 JSONL export:
 
 ```bash
-turkisheval export \
+turkishquality export \
   --workspace ./my-evaluations \
   --output evaluations.jsonl \
   --format jsonl
@@ -124,7 +124,7 @@ Those artifact classes have different trust and lifecycle semantics.
 Preview an import without writing files:
 
 ```bash
-turkisheval import evaluations.json \
+turkishquality import evaluations.json \
   --workspace ./my-evaluations \
   --dry-run
 ```
@@ -132,7 +132,7 @@ turkisheval import evaluations.json \
 Perform the import:
 
 ```bash
-turkisheval import evaluations.json \
+turkishquality import evaluations.json \
   --workspace ./my-evaluations
 ```
 
@@ -157,7 +157,7 @@ The importer deduplicates:
 Imported artifact names include a digest prefix, so identical re-imports are deterministic
 and do not create timestamp-driven copies.
 
-Deduplication is exact-content deduplication. TurkishEvalKit does not currently attempt
+Deduplication is exact-content deduplication. TurkishQualityKit does not currently attempt
 semantic or fuzzy duplicate detection.
 
 ## Failure and rollback behavior
@@ -190,4 +190,4 @@ The `1.0` interchange schema does not:
 - provide a database or remote registry.
 
 The goal is a small, explicit, inspectable boundary for moving evaluation records without
-weakening TurkishEvalKit's audit model.
+weakening TurkishQualityKit's audit model.

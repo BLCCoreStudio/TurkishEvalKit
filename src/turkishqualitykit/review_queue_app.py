@@ -41,7 +41,7 @@ def register_review_queue_routes(
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             'The review queue requires the workbench dependency. '
-            'Install with: python -m pip install "turkishevalkit[workbench]"'
+            'Install with: python -m pip install "turkishqualitykit[workbench]"'
         ) from exc
 
     @app.get("/queue")
@@ -111,8 +111,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Console entry point for the queue-first combined workbench."""
 
     parser = argparse.ArgumentParser(
-        prog="turkisheval-queue",
-        description="Open the local TurkishEvalKit review queue.",
+        prog="turkishquality-queue",
+        description="Open the local TurkishQualityKit review queue.",
     )
     parser.add_argument("--workspace", type=Path)
     parser.add_argument("--port", type=int, default=8765)

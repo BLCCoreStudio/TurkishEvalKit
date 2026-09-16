@@ -12,7 +12,7 @@ coverage.xml
 .coverage
 htmlcov/
 .DS_Store
-.turkishevalkit/
+.turkishqualitykit/
 *.wav
 *.mp3
 *.m4a

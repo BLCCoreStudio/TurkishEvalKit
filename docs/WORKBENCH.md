@@ -1,6 +1,6 @@
 # Local Workbench
 
-The TurkishEvalKit workbench is a local browser interface over the same typed evaluation, validation, scoring, audio-evidence, workflow, calibration, disagreement, and reliability engines used by the package core.
+The TurkishQualityKit workbench is a local browser interface over the same typed evaluation, validation, scoring, audio-evidence, workflow, calibration, disagreement, and reliability engines used by the package core.
 
 ## Install
 
@@ -13,7 +13,7 @@ The dependency is optional so CLI/library use can remain dependency-free.
 ## Start
 
 ```bash
-turkisheval workbench
+turkishquality workbench
 ```
 
 Default behavior:
@@ -26,9 +26,9 @@ Default behavior:
 Useful options:
 
 ```bash
-turkisheval workbench --workspace ./eval-data
-turkisheval workbench --port 9876
-turkisheval workbench --no-browser
+turkishquality workbench --workspace ./eval-data
+turkishquality workbench --port 9876
+turkishquality workbench --no-browser
 ```
 
 The CLI deliberately does not expose a public network bind-address option.
@@ -46,7 +46,7 @@ A standard workbench process serves:
 The queue-first launcher additionally serves `/queue` while retaining all standard workbench routes:
 
 ```bash
-turkisheval queue
+turkishquality queue
 ```
 
 The browser pages are adapters. Authoritative validation and statistics remain in Python domain modules.
@@ -202,7 +202,7 @@ The workbench is local-first:
 
 - the server listens on loopback only;
 - the UI has no CDN dependency;
-- no evaluation/workflow/calibration/reliability content is sent to a remote API by TurkishEvalKit;
+- no evaluation/workflow/calibration/reliability content is sent to a remote API by TurkishQualityKit;
 - referenced audio files are not copied into history;
 - source/context, annotations, and human workflow metadata are persisted locally when they belong to an authoritative artifact.
 

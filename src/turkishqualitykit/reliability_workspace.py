@@ -256,7 +256,7 @@ def create_reliability_blueprint(workspace: Path) -> Blueprint:
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             'The reliability workspace requires the workbench dependency. '
-            'Install with: python -m pip install "turkishevalkit[workbench]"'
+            'Install with: python -m pip install "turkishqualitykit[workbench]"'
         ) from exc
 
     blueprint = Blueprint("reliability_workspace", __name__)

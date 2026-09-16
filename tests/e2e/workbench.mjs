@@ -4,7 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseURL = process.env.WORKBENCH_URL || "http://127.0.0.1:8765";
-const artifacts = process.env.E2E_ARTIFACTS || "/tmp/turkisheval-browser-e2e";
+const artifacts = process.env.E2E_ARTIFACTS || "/tmp/turkishquality-browser-e2e";
 
 async function ensureNoHorizontalOverflow(page, label) {
   const dimensions = await page.evaluate(() => ({
@@ -93,7 +93,7 @@ async function exerciseDesktop(browser) {
   await page.locator("#workspacePath").filter({ hasNotText: "Loading" }).waitFor();
   await ensureNoHorizontalOverflow(page, "desktop viewport");
 
-  assert.equal(await page.title(), "TurkishEvalKit Workbench");
+  assert.equal(await page.title(), "TurkishQualityKit Workbench");
   assert.match(await page.locator("#rubricVersion").textContent(), /^tr-text-quality@/);
   assert.ok(await page.getByRole("button", { name: "Pairwise" }).isVisible());
   assert.equal(await page.locator("#evaluatorId").inputValue(), "evaluator-local");

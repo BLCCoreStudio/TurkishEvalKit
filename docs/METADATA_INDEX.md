@@ -1,6 +1,6 @@
 # Rebuildable Metadata Index
 
-TurkishEvalKit `0.12.x` adds an **optional, disposable SQLite metadata index** for large local workspaces.
+TurkishQualityKit `0.12.x` adds an **optional, disposable SQLite metadata index** for large local workspaces.
 
 The index is a read-optimization layer only. Evaluation JSON, workflow sidecars, and revision sidecars remain the canonical source of truth.
 
@@ -19,25 +19,25 @@ No index is created automatically.
 Check status:
 
 ```bash
-turkisheval index status --workspace ./my-evaluations
+turkishquality index status --workspace ./my-evaluations
 ```
 
 Inspect machine-readable status:
 
 ```bash
-turkisheval index status --workspace ./my-evaluations --json
+turkishquality index status --workspace ./my-evaluations --json
 ```
 
 Build or rebuild the index:
 
 ```bash
-turkisheval index rebuild --workspace ./my-evaluations
+turkishquality index rebuild --workspace ./my-evaluations
 ```
 
 Delete it:
 
 ```bash
-turkisheval index clear --workspace ./my-evaluations
+turkishquality index clear --workspace ./my-evaluations
 ```
 
 Deleting the index never deletes evaluations, workflows, revisions, calibration artifacts, or interchange datasets.
@@ -136,9 +136,9 @@ If index content disagrees with canonical files, canonical files win by invalida
 
 ## External file changes
 
-The fast freshness check uses path, size, and `mtime_ns`, not full content hashes. Normal TurkishEvalKit writes change those attributes and therefore invalidate a stale snapshot.
+The fast freshness check uses path, size, and `mtime_ns`, not full content hashes. Normal TurkishQualityKit writes change those attributes and therefore invalidate a stale snapshot.
 
-An external tool that intentionally modifies file contents while preserving both file size and nanosecond modification time could evade this cheap freshness check. In environments that perform such metadata-preserving rewrites, run `turkisheval index rebuild` after external changes or clear the index entirely.
+An external tool that intentionally modifies file contents while preserving both file size and nanosecond modification time could evade this cheap freshness check. In environments that perform such metadata-preserving rewrites, run `turkishquality index rebuild` after external changes or clear the index entirely.
 
 This trade-off is intentional: hashing every canonical file on every read would largely remove the performance benefit of the cache.
 

@@ -102,7 +102,7 @@ A calibration artifact remains a valid historical report even if one of its refe
 
 - calibration `details` and download remain available;
 - disagreement reconstruction returns HTTP `409 Conflict`;
-- TurkishEvalKit does not fabricate or partially infer the missing evidence.
+- TurkishQualityKit does not fabricate or partially infer the missing evidence.
 
 ### Tamper and compatibility checks
 

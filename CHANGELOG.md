@@ -1,6 +1,6 @@
 # Changelog
 
-All notable TurkishEvalKit changes are documented here. The project follows semantic versioning from the v1.0 release onward.
+All notable TurkishQualityKit changes are documented here. The project follows semantic versioning from the v1.0 release onward.
 
 ## 1.0.0 — 2026-09-16
 
@@ -34,7 +34,7 @@ All notable TurkishEvalKit changes are documented here. The project follows sema
 - CodeQL, maintainer ownership, security/support policies and structured contribution templates.
 
 ### v1 trust boundary
-TurkishEvalKit standardizes human evaluation evidence and workflow mechanics. It does not claim that an evaluator is automatically correct, does not infer correctness from agreement alone, and does not silently import external workflow state as trusted local history.
+TurkishQualityKit standardizes human evaluation evidence and workflow mechanics. It does not claim that an evaluator is automatically correct, does not infer correctness from agreement alone, and does not silently import external workflow state as trusted local history.
 
 ## 0.13.0 — 2026-09-03
 - Added the localhost Reliability Workspace and shared reliability navigation.

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from turkishevalkit.workflow import (
+from turkishqualitykit.workflow import (
     ActorRole,
     AdjudicationOutcome,
     EvaluationSession,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from turkishevalkit.cli import main
+from turkishqualitykit.cli import main
 
 
 def test_reliability_cli_json_output(capsys: object) -> None:

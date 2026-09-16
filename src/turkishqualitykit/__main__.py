@@ -1,4 +1,4 @@
-"""Module entry point for ``python -m turkishevalkit``."""
+"""Module entry point for ``python -m turkishqualitykit``."""
 
 from __future__ import annotations
 

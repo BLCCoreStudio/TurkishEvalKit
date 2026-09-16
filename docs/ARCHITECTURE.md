@@ -1,6 +1,6 @@
 # Architecture
 
-TurkishEvalKit separates human judgment, deterministic scoring, trusted process state, immutable revision lineage, operational projections, same-stimulus calibration, disagreement exploration, repeated-task reliability, dataset interchange, optional rebuildable metadata indexing, and localhost browser adapters.
+TurkishQualityKit separates human judgment, deterministic scoring, trusted process state, immutable revision lineage, operational projections, same-stimulus calibration, disagreement exploration, repeated-task reliability, dataset interchange, optional rebuildable metadata indexing, and localhost browser adapters.
 
 A later review, revision, adjudication, queue query, calibration, disagreement drill-down, reliability analysis, export, import, or index rebuild must not silently rewrite an evaluator's earlier evidence.
 
@@ -114,7 +114,7 @@ reason | null
 assumptions[]
 ```
 
-If assumptions fail, TurkishEvalKit returns `applicable=false` and a reason rather than coercing the dataset. Negative coefficients are preserved rather than clipped.
+If assumptions fail, TurkishQualityKit returns `applicable=false` and a reason rather than coercing the dataset. Negative coefficients are preserved rather than clipped.
 
 The reliability core is read-only with respect to workspace artifacts.
 
@@ -174,7 +174,7 @@ Owns the portable evaluator-record dataset boundary.
 The canonical bundle is versioned as:
 
 ```text
-turkishevalkit.evaluation-dataset@1.0
+turkishqualitykit.evaluation-dataset@1.0
 ```
 
 It can read one record, arrays, canonical bundles, scored-result wrappers, and JSONL/NDJSON. Every record is reconstructed through `serialization.py` and revalidated through the existing scalar or pairwise scoring engine before conversion or workspace import.
@@ -435,7 +435,7 @@ The metadata-index SHA-256 fingerprint covers relative paths, sizes, and nanosec
 
 ## Schema evolution
 
-The evaluator-record dataset interchange schema is stable at `turkishevalkit.evaluation-dataset@1.0`.
+The evaluator-record dataset interchange schema is stable at `turkishqualitykit.evaluation-dataset@1.0`.
 
 The metadata index has a separate disposable cache schema version. Incompatible versions are treated as stale and rebuilt rather than migrated as authoritative state.
 
@@ -452,7 +452,7 @@ Other persistence/semantic surfaces retain their own compatibility rules:
 
 ## Current limitations
 
-TurkishEvalKit currently does not:
+TurkishQualityKit currently does not:
 
 - open/decode media or verify actual media duration;
 - generate waveforms or infer audio issues;

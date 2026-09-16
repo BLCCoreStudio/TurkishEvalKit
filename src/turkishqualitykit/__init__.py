@@ -1,4 +1,4 @@
-"""TurkishEvalKit public package interface."""
+"""TurkishQualityKit public package interface."""
 
 from .calibration import (
     AudioAnnotationAgreement,

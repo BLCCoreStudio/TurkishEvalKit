@@ -1,6 +1,6 @@
 # Timestamped Audio Annotations
 
-TurkishEvalKit can attach localized human QA evidence to an audio evaluation without embedding or copying the referenced media.
+TurkishQualityKit can attach localized human QA evidence to an audio evaluation without embedding or copying the referenced media.
 
 Annotations are evidence. They do **not** automatically change rubric ratings or the aggregate score.
 
@@ -84,7 +84,7 @@ Leaving **End** empty creates a point marker at the start timestamp. An explicit
 
 ## Privacy boundary
 
-An annotation points to time within the audio reference already supplied by the evaluation record. TurkishEvalKit does not copy the referenced audio file into the evaluation artifact.
+An annotation points to time within the audio reference already supplied by the evaluation record. TurkishQualityKit does not copy the referenced audio file into the evaluation artifact.
 
 The annotation note itself is persisted. Evaluators should avoid unnecessary personal or confidential information in notes.
 

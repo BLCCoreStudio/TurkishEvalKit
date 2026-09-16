@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible defect in TurkishEvalKit
+description: Report a reproducible defect in TurkishQualityKit
 title: "[Bug]: "
 labels:
   - bug
@@ -10,7 +10,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: TurkishEvalKit version or commit
+      label: TurkishQualityKit version or commit
       placeholder: v0.x.y or commit SHA
     validations:
       required: true

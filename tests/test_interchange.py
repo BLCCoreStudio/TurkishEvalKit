@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from turkishevalkit.evaluation import evaluate_submission
-from turkishevalkit.interchange import (
+from turkishqualitykit.evaluation import evaluate_submission
+from turkishqualitykit.interchange import (
     INTERCHANGE_SCHEMA,
     INTERCHANGE_SCHEMA_VERSION,
     export_workspace,
@@ -17,8 +17,8 @@ from turkishevalkit.interchange import (
     record_digest,
     render_interchange,
 )
-from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
-from turkishevalkit.serialization import load_record, write_result
+from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
+from turkishqualitykit.serialization import load_record, write_result
 
 
 def _text_record() -> object:

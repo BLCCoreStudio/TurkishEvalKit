@@ -1,4 +1,4 @@
-# TurkishEvalKit
+# TurkishQualityKit
 
 [![CI](https://github.com/BLCCoreStudio/TurkishEvalKit/actions/workflows/ci.yml/badge.svg)](https://github.com/BLCCoreStudio/TurkishEvalKit/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
@@ -6,13 +6,13 @@
 
 **Human-in-the-loop evaluation toolkit for Turkish AI text, audio, pairwise review, calibration, repeated-task reliability, immutable review workflows, portable datasets, rebuildable metadata indexing, and local QA operations.**
 
-TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into inspectable local artifacts. It is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending an automated heuristic can replace the evaluator.
+TurkishQualityKit records native-language human judgments against explicit, versioned rubrics and turns them into inspectable local artifacts. It is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending an automated heuristic can replace the evaluator.
 
 > **Status:** stable v1 (`1.0.x`). The v1 contract includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, a localhost reliability workspace, versioned evaluation-dataset interchange, optional rebuildable metadata indexing, JSON/JSONL/CLI interfaces, and localhost-only browser tools. See [`CHANGELOG.md`](CHANGELOG.md) for release history.
 
 ## Why this exists
 
-AI evaluation often fails in two opposite ways: free-form notes are difficult to compare, while over-automated scoring can hide the human judgment the task actually depends on. TurkishEvalKit keeps the evaluator responsible for the decision and standardizes the surrounding workflow.
+AI evaluation often fails in two opposite ways: free-form notes are difficult to compare, while over-automated scoring can hide the human judgment the task actually depends on. TurkishQualityKit keeps the evaluator responsible for the decision and standardizes the surrounding workflow.
 
 The project separates:
 
@@ -136,7 +136,7 @@ Every coefficient is wrapped in an explicit applicability result:
 }
 ```
 
-TurkishEvalKit does not silently coerce a dataset just to produce a number. If a metric's assumptions are not satisfied, the metric is returned as `applicable: false` with a reason.
+TurkishQualityKit does not silently coerce a dataset just to produce a number. If a metric's assumptions are not satisfied, the metric is returned as `applicable: false` with a reason.
 
 A reliability specification must declare `minimum_task_count` and the value must be at least `3`. This is an inclusion guardrail chosen by the dataset author, **not** a claim that three tasks are universally statistically sufficient.
 
@@ -158,9 +158,9 @@ See [`docs/RELIABILITY.md`](docs/RELIABILITY.md) for formulas, assumptions, work
 
 ### Evaluation dataset interchange
 
-TurkishEvalKit can move evaluator-authored records between files and local workspaces without turning external process metadata into trusted workflow history.
+TurkishQualityKit can move evaluator-authored records between files and local workspaces without turning external process metadata into trusted workflow history.
 
-- Canonical versioned bundle schema: `turkishevalkit.evaluation-dataset@1.0`.
+- Canonical versioned bundle schema: `turkishqualitykit.evaluation-dataset@1.0`.
 - Reads one record, JSON arrays, canonical bundles, scored-result wrappers, JSONL, and NDJSON.
 - Writes canonical bundles, JSON arrays, or JSONL.
 - Revalidates every record through the existing typed parser and scalar/pairwise scoring engines.
@@ -191,7 +191,7 @@ Requires Python 3.11 or newer.
 
 ```bash
 git clone https://github.com/BLCCoreStudio/TurkishEvalKit.git
-cd TurkishEvalKit
+cd TurkishQualityKit
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
@@ -200,29 +200,29 @@ python -m pip install -e .
 List built-in rubrics:
 
 ```bash
-turkisheval rubrics
+turkishquality rubrics
 ```
 
 Run the self-authored examples:
 
 ```bash
-turkisheval evaluate examples/text-evaluation.json
-turkisheval evaluate examples/audio-evaluation.json --json
-turkisheval evaluate examples/pairwise-evaluation.json
+turkishquality evaluate examples/text-evaluation.json
+turkishquality evaluate examples/audio-evaluation.json --json
+turkishquality evaluate examples/pairwise-evaluation.json
 ```
 
 ## Calibration from the CLI
 
 ```bash
-turkisheval calibrate examples/calibration-text.json
-turkisheval calibrate examples/calibration-audio.json --json
-turkisheval calibrate examples/calibration-pairwise.json --output calibration.json
+turkishquality calibrate examples/calibration-text.json
+turkishquality calibrate examples/calibration-audio.json --json
+turkishquality calibrate examples/calibration-pairwise.json --output calibration.json
 ```
 
 Audio timestamp matching defaults to `250 ms` and can be changed explicitly:
 
 ```bash
-turkisheval calibrate examples/calibration-audio.json --annotation-tolerance-ms 150
+turkishquality calibrate examples/calibration-audio.json --annotation-tolerance-ms 150
 ```
 
 See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
@@ -232,19 +232,19 @@ See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 Run the repeated-task example:
 
 ```bash
-turkisheval reliability examples/reliability-text.json
+turkishquality reliability examples/reliability-text.json
 ```
 
 Inspect the complete applicability-aware report:
 
 ```bash
-turkisheval reliability examples/reliability-text.json --json
+turkishquality reliability examples/reliability-text.json --json
 ```
 
 Write the report:
 
 ```bash
-turkisheval reliability examples/reliability-text.json --output reliability-report.json
+turkishquality reliability examples/reliability-text.json --output reliability-report.json
 ```
 
 CLI and browser reliability use the same `reliability.py` core; there is no second statistics implementation in the UI.
@@ -254,26 +254,26 @@ CLI and browser reliability use the same `reliability.py` core; there is no seco
 Convert an evaluation or dataset to the versioned canonical bundle:
 
 ```bash
-turkisheval convert examples/text-evaluation.json dataset.json
+turkishquality convert examples/text-evaluation.json dataset.json
 ```
 
 Convert to JSONL:
 
 ```bash
-turkisheval convert dataset.json dataset.jsonl --output-format jsonl
+turkishquality convert dataset.json dataset.jsonl --output-format jsonl
 ```
 
 Export evaluator records from a workspace:
 
 ```bash
-turkisheval export --workspace ./my-evaluations --output dataset.json
+turkishquality export --workspace ./my-evaluations --output dataset.json
 ```
 
 Preview and perform an import:
 
 ```bash
-turkisheval import dataset.json --workspace ./other-workspace --dry-run
-turkisheval import dataset.json --workspace ./other-workspace
+turkishquality import dataset.json --workspace ./other-workspace --dry-run
+turkishquality import dataset.json --workspace ./other-workspace
 ```
 
 Interchange never imports external workflow/reviewer state as trusted local process history.
@@ -283,19 +283,19 @@ Interchange never imports external workflow/reviewer state as trusted local proc
 Inspect whether an index exists and is usable:
 
 ```bash
-turkisheval index status --workspace ./my-evaluations
+turkishquality index status --workspace ./my-evaluations
 ```
 
 Build it from canonical JSON artifacts:
 
 ```bash
-turkisheval index rebuild --workspace ./my-evaluations
+turkishquality index rebuild --workspace ./my-evaluations
 ```
 
 Delete only the disposable cache:
 
 ```bash
-turkisheval index clear --workspace ./my-evaluations
+turkishquality index clear --workspace ./my-evaluations
 ```
 
 A source change makes the snapshot stale. Stale/corrupt indexes are never used as fallback truth.
@@ -311,19 +311,19 @@ python -m pip install -e ".[workbench]"
 Start the standard workbench:
 
 ```bash
-turkisheval workbench
+turkishquality workbench
 ```
 
 Use a dedicated workspace:
 
 ```bash
-turkisheval workbench --workspace ./my-evaluations --port 8765
+turkishquality workbench --workspace ./my-evaluations --port 8765
 ```
 
 Run without opening a browser:
 
 ```bash
-turkisheval workbench --no-browser
+turkishquality workbench --no-browser
 ```
 
 The localhost application serves:
@@ -337,13 +337,13 @@ The localhost application serves:
 Start the combined local application directly in queue mode:
 
 ```bash
-turkisheval queue
+turkishquality queue
 ```
 
 Equivalent convenience entry point:
 
 ```bash
-turkisheval-queue
+turkishquality-queue
 ```
 
 The queue-first launcher serves:
@@ -402,7 +402,7 @@ Workbench-managed authoritative artifact classes remain separate from disposable
 
 Evaluation artifacts are append-only. Workflow sidecars advance state while retaining the event chain. Revision sidecars are immutable lineage metadata. Calibration reports are append-only derived artifacts. Queue and disagreement-explorer state are read-time projections.
 
-Population reliability reports are portable CLI/library/browser outputs; TurkishEvalKit does not create a hidden persistent reliability database. Interchange datasets are explicit user-selected exports, not a hidden synchronization store. The metadata SQLite file is a cache and may be deleted at any time.
+Population reliability reports are portable CLI/library/browser outputs; TurkishQualityKit does not create a hidden persistent reliability database. Interchange datasets are explicit user-selected exports, not a hidden synchronization store. The metadata SQLite file is a cache and may be deleted at any time.
 
 The local interfaces:
 
@@ -440,7 +440,7 @@ Population reliability consumes evaluation submissions but does not rewrite eval
 
 ## Non-goals
 
-TurkishEvalKit does **not**:
+TurkishQualityKit does **not**:
 
 - automatically decide whether an answer or voice sample is good;
 - send evaluation content to an external AI service;
@@ -470,7 +470,7 @@ These are intentional boundaries. Human judgment remains explicit and the audit 
 python -m pip install -e ".[dev]"
 ruff check .
 mypy src
-pytest --cov=turkishevalkit --cov-report=term-missing
+pytest --cov=turkishqualitykit --cov-report=term-missing
 ```
 
 CI validates:
@@ -489,7 +489,7 @@ Feature-specific gates additionally validate calibration, disagreement drill-dow
 ## Project map
 
 ```text
-src/turkishevalkit/
+src/turkishqualitykit/
 ├── models.py                   # typed evaluation records
 ├── rubrics.py                  # built-in versioned rubrics
 ├── evaluation.py               # scalar validation/scoring

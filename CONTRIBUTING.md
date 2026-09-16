@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for improving TurkishEvalKit. The project favors small, reviewable changes with explicit evaluation semantics over rapid feature accumulation.
+Thank you for improving TurkishQualityKit. The project favors small, reviewable changes with explicit evaluation semantics over rapid feature accumulation.
 
 ## Development setup
 
@@ -15,7 +15,7 @@ Run the full local quality suite before opening a pull request:
 ```bash
 ruff check .
 mypy src
-pytest --cov=turkishevalkit --cov-report=term-missing
+pytest --cov=turkishqualitykit --cov-report=term-missing
 ```
 
 ## Pull requests
