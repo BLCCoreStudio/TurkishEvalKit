@@ -6,13 +6,13 @@ on:
     paths:
       - ".github/workflows/revision-lineage.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/revision.py"
-      - "src/turkishevalkit/workflow.py"
-      - "src/turkishevalkit/serialization.py"
-      - "src/turkishevalkit/workbench.py"
-      - "src/turkishevalkit/templates/workbench.html"
-      - "src/turkishevalkit/static/revision_workbench.js"
-      - "src/turkishevalkit/static/revision_history.js"
+      - "src/turkishqualitykit/revision.py"
+      - "src/turkishqualitykit/workflow.py"
+      - "src/turkishqualitykit/serialization.py"
+      - "src/turkishqualitykit/workbench.py"
+      - "src/turkishqualitykit/templates/workbench.html"
+      - "src/turkishqualitykit/static/revision_workbench.js"
+      - "src/turkishqualitykit/static/revision_history.js"
       - "tests/test_revision.py"
       - "tests/test_workflow_revision.py"
       - "tests/test_workbench_revision.py"
@@ -21,13 +21,13 @@ on:
     paths:
       - ".github/workflows/revision-lineage.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/revision.py"
-      - "src/turkishevalkit/workflow.py"
-      - "src/turkishevalkit/serialization.py"
-      - "src/turkishevalkit/workbench.py"
-      - "src/turkishevalkit/templates/workbench.html"
-      - "src/turkishevalkit/static/revision_workbench.js"
-      - "src/turkishevalkit/static/revision_history.js"
+      - "src/turkishqualitykit/revision.py"
+      - "src/turkishqualitykit/workflow.py"
+      - "src/turkishqualitykit/serialization.py"
+      - "src/turkishqualitykit/workbench.py"
+      - "src/turkishqualitykit/templates/workbench.html"
+      - "src/turkishqualitykit/static/revision_workbench.js"
+      - "src/turkishqualitykit/static/revision_history.js"
       - "tests/test_revision.py"
       - "tests/test_workflow_revision.py"
       - "tests/test_workbench_revision.py"
@@ -66,22 +66,22 @@ jobs:
 
       - name: JavaScript syntax
         run: |
-          node --check src/turkishevalkit/static/revision_workbench.js
-          node --check src/turkishevalkit/static/revision_history.js
+          node --check src/turkishqualitykit/static/revision_workbench.js
+          node --check src/turkishqualitykit/static/revision_history.js
 
       - name: Wheel revision assets
         run: |
-          rm -rf /tmp/turkishevalkit-revision-wheel
-          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-revision-wheel
+          rm -rf /tmp/turkishqualitykit-revision-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishqualitykit-revision-wheel
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
-          wheel = next(Path("/tmp/turkishevalkit-revision-wheel").glob("turkishevalkit-*.whl"))
+          wheel = next(Path("/tmp/turkishqualitykit-revision-wheel").glob("turkishqualitykit-*.whl"))
           required = {
-              "turkishevalkit/templates/workbench.html",
-              "turkishevalkit/static/revision_workbench.js",
-              "turkishevalkit/static/revision_history.js",
+              "turkishqualitykit/templates/workbench.html",
+              "turkishqualitykit/static/revision_workbench.js",
+              "turkishqualitykit/static/revision_history.js",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
