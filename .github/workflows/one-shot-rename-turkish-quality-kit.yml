@@ -58,7 +58,7 @@ jobs:
           changed_files = 0
           for raw_path in tracked:
               path = Path(raw_path)
-              if path.name == "one-shot-rename-turkish-quality-kit.yml":
+              if raw_path.startswith(".github/workflows/"):
                   continue
               data = path.read_bytes()
               if b"\0" in data:
@@ -106,8 +106,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git rm .github/workflows/one-shot-rename-turkish-quality-kit.yml
+          git add -A -- ':!.github/workflows'
           git commit -m "refactor: stage TurkishQualityKit rename"
           git push origin HEAD:rename/turkish-quality-kit
 
