@@ -6,24 +6,24 @@ on:
     paths:
       - ".github/workflows/disagreement-explorer.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/__init__.py"
-      - "src/turkishevalkit/disagreement.py"
-      - "src/turkishevalkit/calibration_dashboard.py"
-      - "src/turkishevalkit/templates/calibration.html"
-      - "src/turkishevalkit/static/calibration.css"
-      - "src/turkishevalkit/static/calibration.js"
+      - "src/turkishqualitykit/__init__.py"
+      - "src/turkishqualitykit/disagreement.py"
+      - "src/turkishqualitykit/calibration_dashboard.py"
+      - "src/turkishqualitykit/templates/calibration.html"
+      - "src/turkishqualitykit/static/calibration.css"
+      - "src/turkishqualitykit/static/calibration.js"
       - "tests/test_disagreement.py"
       - "tests/test_disagreement_dashboard.py"
   pull_request:
     paths:
       - ".github/workflows/disagreement-explorer.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/__init__.py"
-      - "src/turkishevalkit/disagreement.py"
-      - "src/turkishevalkit/calibration_dashboard.py"
-      - "src/turkishevalkit/templates/calibration.html"
-      - "src/turkishevalkit/static/calibration.css"
-      - "src/turkishevalkit/static/calibration.js"
+      - "src/turkishqualitykit/__init__.py"
+      - "src/turkishqualitykit/disagreement.py"
+      - "src/turkishqualitykit/calibration_dashboard.py"
+      - "src/turkishqualitykit/templates/calibration.html"
+      - "src/turkishqualitykit/static/calibration.css"
+      - "src/turkishqualitykit/static/calibration.js"
       - "tests/test_disagreement.py"
       - "tests/test_disagreement_dashboard.py"
 
@@ -54,36 +54,36 @@ jobs:
         run: pytest -q tests/test_disagreement.py tests/test_disagreement_dashboard.py
 
       - name: JavaScript syntax
-        run: node --check src/turkishevalkit/static/calibration.js
+        run: node --check src/turkishqualitykit/static/calibration.js
 
       - name: Public API smoke
         run: |
           python - <<'PY'
           from importlib.metadata import version
 
-          import turkishevalkit
-          from turkishevalkit import build_disagreement_report
+          import turkishqualitykit
+          from turkishqualitykit import build_disagreement_report
 
-          assert turkishevalkit.__version__ == version("turkishevalkit")
+          assert turkishqualitykit.__version__ == version("turkishqualitykit")
           assert callable(build_disagreement_report)
           PY
 
       - name: Wheel explorer assets
         run: |
-          rm -rf /tmp/turkishevalkit-disagreement-wheel
-          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-disagreement-wheel
+          rm -rf /tmp/turkishqualitykit-disagreement-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishqualitykit-disagreement-wheel
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
           wheel = next(
-              Path("/tmp/turkishevalkit-disagreement-wheel").glob("turkishevalkit-*.whl")
+              Path("/tmp/turkishqualitykit-disagreement-wheel").glob("turkishqualitykit-*.whl")
           )
           required = {
-              "turkishevalkit/disagreement.py",
-              "turkishevalkit/templates/calibration.html",
-              "turkishevalkit/static/calibration.css",
-              "turkishevalkit/static/calibration.js",
+              "turkishqualitykit/disagreement.py",
+              "turkishqualitykit/templates/calibration.html",
+              "turkishqualitykit/static/calibration.css",
+              "turkishqualitykit/static/calibration.js",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
