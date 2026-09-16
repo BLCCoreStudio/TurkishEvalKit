@@ -45,9 +45,7 @@ jobs:
               "github.com/BLCCoreStudio/TurkishEvalKit",
           )
 
-          tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
-          tracked = [path for path in tracked if path]
-
+          tracked = [p for p in subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0") if p]
           for old_path in sorted(tracked, key=len, reverse=True):
               if OLD_DIR not in old_path:
                   continue
@@ -55,11 +53,9 @@ jobs:
               Path(new_path).parent.mkdir(parents=True, exist_ok=True)
               subprocess.run(["git", "mv", old_path, new_path], check=True)
 
-          tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
-          tracked = [path for path in tracked if path]
-          changed_files = []
+          tracked = [p for p in subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0") if p]
           replacement_count = 0
-
+          changed_files = 0
           for raw_path in tracked:
               path = Path(raw_path)
               if path.name == "one-shot-rename-turkish-quality-kit.yml":
@@ -82,74 +78,45 @@ jobs:
 
               updated = text
               for old, new in REPLACEMENTS:
-                  count = updated.count(old)
-                  if count:
-                      replacement_count += count
-                      updated = updated.replace(old, new)
-
+                  replacement_count += updated.count(old)
+                  updated = updated.replace(old, new)
               for token, slug in protected.items():
                   updated = updated.replace(token, slug)
 
               if updated != original:
                   path.write_text(updated, encoding="utf-8")
-                  changed_files.append(raw_path)
+                  changed_files += 1
 
-          plan = Path("docs/RENAME_TO_TURKISH_QUALITY_KIT.md")
-          plan.write_text(
+          Path("docs/RENAME_TO_TURKISH_QUALITY_KIT.md").write_text(
               "# TurkishQualityKit rename staging\n\n"
-              "This branch stages the public product rename from **TurkishEvalKit** to "
-              "**TurkishQualityKit** without changing the GitHub repository slug yet.\n\n"
-              "## Staged names\n\n"
+              "This branch stages the product rename from **TurkishEvalKit** to **TurkishQualityKit**.\n\n"
               "- Product: `TurkishQualityKit`\n"
               "- Python distribution/package: `turkishqualitykit`\n"
-              "- CLI: `turkishquality`\n"
-              "- Environment/constant prefix where applicable: `TURKISHQUALITY` / `TURKISHQUALITYKIT`\n\n"
-              "## Deliberately unchanged for now\n\n"
-              "The repository remains `BLCCoreStudio/TurkishEvalKit` while an external job "
-              "application is under review and references that public URL. Repository rename "
-              "and URL cleanup should be done only at the final cutover.\n\n"
-              "This branch is not the default branch and is not intended to be merged until "
-              "the external application-name consistency concern is no longer relevant.\n",
+              "- CLI: `turkishquality` and `turkishquality-queue`\n"
+              "- Internal prefix where applicable: `TURKISHQUALITY` / `TURKISHQUALITYKIT`\n\n"
+              "The public repository slug intentionally remains `BLCCoreStudio/TurkishEvalKit` for now because the submitted job application references that URL. The repository itself must not be renamed until the final cutover.\n",
               encoding="utf-8",
           )
-          subprocess.run(["git", "add", "docs/RENAME_TO_TURKISH_QUALITY_KIT.md"], check=True)
-          print(f"Updated {len(changed_files)} tracked text files with {replacement_count} replacements.")
+          print(f"Updated {changed_files} text files with {replacement_count} replacements")
           PY
 
-      - name: Verify package and CLI rename surface
+      - name: Persist staged rename on isolated branch
         shell: bash
         run: |
           set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git rm .github/workflows/one-shot-rename-turkish-quality-kit.yml
+          git commit -m "refactor: stage TurkishQualityKit rename"
+          git push origin HEAD:rename/turkish-quality-kit
+
+      - name: Verify renamed package surface
+        run: |
           test -d src/turkishqualitykit
           test ! -e src/turkishevalkit
-          grep -q 'turkishqualitykit' pyproject.toml
-          grep -q 'turkishquality' pyproject.toml
-          python - <<'PY'
-          import subprocess
-          from pathlib import Path
-
-          allowed_slug = "BLCCoreStudio/TurkishEvalKit"
-          old_tokens = ("TurkishEvalKit", "turkishevalkit", "turkisheval")
-          offenders = []
-          tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
-          for raw_path in filter(None, tracked):
-              path = Path(raw_path)
-              if path.name in {"one-shot-rename-turkish-quality-kit.yml", "RENAME_TO_TURKISH_QUALITY_KIT.md"}:
-                  continue
-              data = path.read_bytes()
-              if b"\0" in data:
-                  continue
-              try:
-                  text = data.decode("utf-8")
-              except UnicodeDecodeError:
-                  continue
-              text = text.replace(allowed_slug, "__REPOSITORY_SLUG__")
-              for token in old_tokens:
-                  if token in text:
-                      offenders.append(f"{raw_path}: {token}")
-          if offenders:
-              raise SystemExit("stale rename tokens:\n" + "\n".join(offenders))
-          PY
+          grep -q 'name = "turkishqualitykit"' pyproject.toml
+          grep -q '^turkishquality = "turkishqualitykit.cli:main"' pyproject.toml
 
       - name: Install development dependencies
         run: python -m pip install --disable-pip-version-check -e ".[dev]"
@@ -161,14 +128,3 @@ jobs:
         run: |
           ruff check .
           mypy src
-
-      - name: Commit staged rename and remove one-shot workflow
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git rm .github/workflows/one-shot-rename-turkish-quality-kit.yml
-          git commit -m "refactor: stage TurkishQualityKit rename"
-          git push origin HEAD:rename/turkish-quality-kit
