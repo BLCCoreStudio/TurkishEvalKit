@@ -6,23 +6,23 @@ on:
     paths:
       - ".github/workflows/calibration-dashboard.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/calibration.py"
-      - "src/turkishevalkit/calibration_dashboard.py"
-      - "src/turkishevalkit/workbench.py"
-      - "src/turkishevalkit/templates/calibration.html"
-      - "src/turkishevalkit/static/calibration.css"
-      - "src/turkishevalkit/static/calibration.js"
+      - "src/turkishqualitykit/calibration.py"
+      - "src/turkishqualitykit/calibration_dashboard.py"
+      - "src/turkishqualitykit/workbench.py"
+      - "src/turkishqualitykit/templates/calibration.html"
+      - "src/turkishqualitykit/static/calibration.css"
+      - "src/turkishqualitykit/static/calibration.js"
       - "tests/test_calibration_dashboard.py"
   pull_request:
     paths:
       - ".github/workflows/calibration-dashboard.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/calibration.py"
-      - "src/turkishevalkit/calibration_dashboard.py"
-      - "src/turkishevalkit/workbench.py"
-      - "src/turkishevalkit/templates/calibration.html"
-      - "src/turkishevalkit/static/calibration.css"
-      - "src/turkishevalkit/static/calibration.js"
+      - "src/turkishqualitykit/calibration.py"
+      - "src/turkishqualitykit/calibration_dashboard.py"
+      - "src/turkishqualitykit/workbench.py"
+      - "src/turkishqualitykit/templates/calibration.html"
+      - "src/turkishqualitykit/static/calibration.css"
+      - "src/turkishqualitykit/static/calibration.js"
       - "tests/test_calibration_dashboard.py"
 
 permissions:
@@ -52,23 +52,23 @@ jobs:
         run: pytest -q tests/test_calibration_dashboard.py
 
       - name: JavaScript syntax
-        run: node --check src/turkishevalkit/static/calibration.js
+        run: node --check src/turkishqualitykit/static/calibration.js
 
       - name: Wheel dashboard assets
         run: |
-          rm -rf /tmp/turkishevalkit-dashboard-wheel
-          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-dashboard-wheel
+          rm -rf /tmp/turkishqualitykit-dashboard-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishqualitykit-dashboard-wheel
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
           wheel = next(
-              Path("/tmp/turkishevalkit-dashboard-wheel").glob("turkishevalkit-*.whl")
+              Path("/tmp/turkishqualitykit-dashboard-wheel").glob("turkishqualitykit-*.whl")
           )
           required = {
-              "turkishevalkit/templates/calibration.html",
-              "turkishevalkit/static/calibration.css",
-              "turkishevalkit/static/calibration.js",
+              "turkishqualitykit/templates/calibration.html",
+              "turkishqualitykit/static/calibration.css",
+              "turkishqualitykit/static/calibration.js",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
