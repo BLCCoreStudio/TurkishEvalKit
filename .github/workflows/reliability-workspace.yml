@@ -6,34 +6,34 @@ on:
     paths:
       - ".github/workflows/reliability-workspace.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/reliability.py"
-      - "src/turkishevalkit/reliability_workspace.py"
-      - "src/turkishevalkit/workspace_evaluations.py"
-      - "src/turkishevalkit/workbench.py"
-      - "src/turkishevalkit/templates/workbench.html"
-      - "src/turkishevalkit/templates/calibration.html"
-      - "src/turkishevalkit/templates/review_queue.html"
-      - "src/turkishevalkit/templates/reliability.html"
-      - "src/turkishevalkit/static/navigation.css"
-      - "src/turkishevalkit/static/reliability.css"
-      - "src/turkishevalkit/static/reliability.js"
+      - "src/turkishqualitykit/reliability.py"
+      - "src/turkishqualitykit/reliability_workspace.py"
+      - "src/turkishqualitykit/workspace_evaluations.py"
+      - "src/turkishqualitykit/workbench.py"
+      - "src/turkishqualitykit/templates/workbench.html"
+      - "src/turkishqualitykit/templates/calibration.html"
+      - "src/turkishqualitykit/templates/review_queue.html"
+      - "src/turkishqualitykit/templates/reliability.html"
+      - "src/turkishqualitykit/static/navigation.css"
+      - "src/turkishqualitykit/static/reliability.css"
+      - "src/turkishqualitykit/static/reliability.js"
       - "tests/test_reliability_workspace.py"
       - "tests/e2e/reliability_workspace.mjs"
   pull_request:
     paths:
       - ".github/workflows/reliability-workspace.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/reliability.py"
-      - "src/turkishevalkit/reliability_workspace.py"
-      - "src/turkishevalkit/workspace_evaluations.py"
-      - "src/turkishevalkit/workbench.py"
-      - "src/turkishevalkit/templates/workbench.html"
-      - "src/turkishevalkit/templates/calibration.html"
-      - "src/turkishevalkit/templates/review_queue.html"
-      - "src/turkishevalkit/templates/reliability.html"
-      - "src/turkishevalkit/static/navigation.css"
-      - "src/turkishevalkit/static/reliability.css"
-      - "src/turkishevalkit/static/reliability.js"
+      - "src/turkishqualitykit/reliability.py"
+      - "src/turkishqualitykit/reliability_workspace.py"
+      - "src/turkishqualitykit/workspace_evaluations.py"
+      - "src/turkishqualitykit/workbench.py"
+      - "src/turkishqualitykit/templates/workbench.html"
+      - "src/turkishqualitykit/templates/calibration.html"
+      - "src/turkishqualitykit/templates/review_queue.html"
+      - "src/turkishqualitykit/templates/reliability.html"
+      - "src/turkishqualitykit/static/navigation.css"
+      - "src/turkishqualitykit/static/reliability.css"
+      - "src/turkishqualitykit/static/reliability.js"
       - "tests/test_reliability_workspace.py"
       - "tests/e2e/reliability_workspace.mjs"
 
@@ -72,7 +72,7 @@ jobs:
 
       - name: JavaScript syntax
         run: |
-          node --check src/turkishevalkit/static/reliability.js
+          node --check src/turkishqualitykit/static/reliability.js
           node --check tests/e2e/reliability_workspace.mjs
 
       - name: Route and core-equivalence smoke
@@ -81,10 +81,10 @@ jobs:
           from pathlib import Path
           from tempfile import TemporaryDirectory
 
-          from turkishevalkit.evaluation import evaluate_submission
-          from turkishevalkit.reliability import load_reliability_spec
-          from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
-          from turkishevalkit.workbench import create_app, create_workflow, save_result, save_workflow
+          from turkishqualitykit.evaluation import evaluate_submission
+          from turkishqualitykit.reliability import load_reliability_spec
+          from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
+          from turkishqualitykit.workbench import create_app, create_workflow, save_result, save_workflow
 
           with TemporaryDirectory() as temporary:
               workspace = Path(temporary)
@@ -136,24 +136,24 @@ jobs:
 
       - name: Wheel workspace assets
         run: |
-          rm -rf /tmp/turkishevalkit-reliability-workspace-wheel
-          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-reliability-workspace-wheel
+          rm -rf /tmp/turkishqualitykit-reliability-workspace-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishqualitykit-reliability-workspace-wheel
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
           wheel = next(
-              Path("/tmp/turkishevalkit-reliability-workspace-wheel").glob(
-                  "turkishevalkit-*.whl"
+              Path("/tmp/turkishqualitykit-reliability-workspace-wheel").glob(
+                  "turkishqualitykit-*.whl"
               )
           )
           required = {
-              "turkishevalkit/reliability_workspace.py",
-              "turkishevalkit/workspace_evaluations.py",
-              "turkishevalkit/templates/reliability.html",
-              "turkishevalkit/static/navigation.css",
-              "turkishevalkit/static/reliability.css",
-              "turkishevalkit/static/reliability.js",
+              "turkishqualitykit/reliability_workspace.py",
+              "turkishqualitykit/workspace_evaluations.py",
+              "turkishqualitykit/templates/reliability.html",
+              "turkishqualitykit/static/navigation.css",
+              "turkishqualitykit/static/reliability.css",
+              "turkishqualitykit/static/reliability.js",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
@@ -166,10 +166,10 @@ jobs:
         run: |
           python - <<'PY'
           from importlib.metadata import version
-          import turkishevalkit
+          import turkishqualitykit
 
-          assert turkishevalkit.__version__ == version("turkishevalkit")
-          assert turkishevalkit.__version__ == "1.0.0"
+          assert turkishqualitykit.__version__ == version("turkishqualitykit")
+          assert turkishqualitykit.__version__ == "1.0.0"
           PY
 
   reliability-browser-e2e:
@@ -177,10 +177,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      WORKSPACE: /tmp/turkisheval-reliability-browser-workspace
+      WORKSPACE: /tmp/turkishquality-reliability-browser-workspace
       PORT: "8767"
       WORKBENCH_URL: http://127.0.0.1:8767
-      E2E_ARTIFACTS: /tmp/turkisheval-reliability-e2e
+      E2E_ARTIFACTS: /tmp/turkishquality-reliability-e2e
 
     steps:
       - name: Checkout
@@ -208,10 +208,10 @@ jobs:
           import os
           from pathlib import Path
 
-          from turkishevalkit.evaluation import evaluate_submission
-          from turkishevalkit.reliability import load_reliability_spec
-          from turkishevalkit.rubrics import TEXT_QUALITY_RUBRIC
-          from turkishevalkit.workbench import create_workflow, save_result, save_workflow
+          from turkishqualitykit.evaluation import evaluate_submission
+          from turkishqualitykit.reliability import load_reliability_spec
+          from turkishqualitykit.rubrics import TEXT_QUALITY_RUBRIC
+          from turkishqualitykit.workbench import create_workflow, save_result, save_workflow
 
           workspace = Path(os.environ["WORKSPACE"])
           spec = load_reliability_spec(Path("examples/reliability-text.json"))
@@ -232,7 +232,7 @@ jobs:
 
       - name: Start localhost workbench
         run: |
-          turkisheval workbench --no-browser --workspace "$WORKSPACE" --port "$PORT" \
+          turkishquality workbench --no-browser --workspace "$WORKSPACE" --port "$PORT" \
             > "$RUNNER_TEMP/reliability-workbench.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/reliability-workbench.pid"
 
