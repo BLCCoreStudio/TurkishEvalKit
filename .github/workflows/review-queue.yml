@@ -6,12 +6,12 @@ on:
     paths:
       - ".github/workflows/review-queue.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/cli.py"
-      - "src/turkishevalkit/review_queue.py"
-      - "src/turkishevalkit/review_queue_app.py"
-      - "src/turkishevalkit/templates/review_queue.html"
-      - "src/turkishevalkit/static/review_queue.css"
-      - "src/turkishevalkit/static/review_queue.js"
+      - "src/turkishqualitykit/cli.py"
+      - "src/turkishqualitykit/review_queue.py"
+      - "src/turkishqualitykit/review_queue_app.py"
+      - "src/turkishqualitykit/templates/review_queue.html"
+      - "src/turkishqualitykit/static/review_queue.css"
+      - "src/turkishqualitykit/static/review_queue.js"
       - "tests/test_cli_queue.py"
       - "tests/test_review_queue.py"
       - "tests/test_review_queue_app.py"
@@ -19,12 +19,12 @@ on:
     paths:
       - ".github/workflows/review-queue.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/cli.py"
-      - "src/turkishevalkit/review_queue.py"
-      - "src/turkishevalkit/review_queue_app.py"
-      - "src/turkishevalkit/templates/review_queue.html"
-      - "src/turkishevalkit/static/review_queue.css"
-      - "src/turkishevalkit/static/review_queue.js"
+      - "src/turkishqualitykit/cli.py"
+      - "src/turkishqualitykit/review_queue.py"
+      - "src/turkishqualitykit/review_queue_app.py"
+      - "src/turkishqualitykit/templates/review_queue.html"
+      - "src/turkishqualitykit/static/review_queue.css"
+      - "src/turkishqualitykit/static/review_queue.js"
       - "tests/test_cli_queue.py"
       - "tests/test_review_queue.py"
       - "tests/test_review_queue_app.py"
@@ -56,26 +56,26 @@ jobs:
         run: pytest -q tests/test_cli_queue.py tests/test_review_queue.py tests/test_review_queue_app.py
 
       - name: JavaScript syntax
-        run: node --check src/turkishevalkit/static/review_queue.js
+        run: node --check src/turkishqualitykit/static/review_queue.js
 
       - name: Console entry points
         run: |
-          turkisheval queue --help
-          turkisheval-queue --help
+          turkishquality queue --help
+          turkishquality-queue --help
 
       - name: Wheel queue assets
         run: |
-          rm -rf /tmp/turkishevalkit-queue-wheel
-          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-queue-wheel
+          rm -rf /tmp/turkishqualitykit-queue-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishqualitykit-queue-wheel
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
-          wheel = next(Path("/tmp/turkishevalkit-queue-wheel").glob("turkishevalkit-*.whl"))
+          wheel = next(Path("/tmp/turkishqualitykit-queue-wheel").glob("turkishqualitykit-*.whl"))
           required = {
-              "turkishevalkit/templates/review_queue.html",
-              "turkishevalkit/static/review_queue.css",
-              "turkishevalkit/static/review_queue.js",
+              "turkishqualitykit/templates/review_queue.html",
+              "turkishqualitykit/static/review_queue.css",
+              "turkishqualitykit/static/review_queue.js",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
