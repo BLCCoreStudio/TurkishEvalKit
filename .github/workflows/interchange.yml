@@ -6,12 +6,12 @@ on:
     paths:
       - ".github/workflows/interchange.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/__init__.py"
-      - "src/turkishevalkit/cli.py"
-      - "src/turkishevalkit/interchange.py"
-      - "src/turkishevalkit/serialization.py"
-      - "src/turkishevalkit/evaluation.py"
-      - "src/turkishevalkit/pairwise.py"
+      - "src/turkishqualitykit/__init__.py"
+      - "src/turkishqualitykit/cli.py"
+      - "src/turkishqualitykit/interchange.py"
+      - "src/turkishqualitykit/serialization.py"
+      - "src/turkishqualitykit/evaluation.py"
+      - "src/turkishqualitykit/pairwise.py"
       - "docs/INTERCHANGE.md"
       - "tests/test_interchange.py"
       - "tests/test_cli_interchange.py"
@@ -19,12 +19,12 @@ on:
     paths:
       - ".github/workflows/interchange.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/__init__.py"
-      - "src/turkishevalkit/cli.py"
-      - "src/turkishevalkit/interchange.py"
-      - "src/turkishevalkit/serialization.py"
-      - "src/turkishevalkit/evaluation.py"
-      - "src/turkishevalkit/pairwise.py"
+      - "src/turkishqualitykit/__init__.py"
+      - "src/turkishqualitykit/cli.py"
+      - "src/turkishqualitykit/interchange.py"
+      - "src/turkishqualitykit/serialization.py"
+      - "src/turkishqualitykit/evaluation.py"
+      - "src/turkishqualitykit/pairwise.py"
       - "docs/INTERCHANGE.md"
       - "tests/test_interchange.py"
       - "tests/test_cli_interchange.py"
@@ -60,8 +60,8 @@ jobs:
           python - <<'PY'
           from importlib.metadata import version
 
-          import turkishevalkit
-          from turkishevalkit import (
+          import turkishqualitykit
+          from turkishqualitykit import (
               INTERCHANGE_SCHEMA,
               INTERCHANGE_SCHEMA_VERSION,
               import_workspace_file,
@@ -69,8 +69,8 @@ jobs:
               render_interchange,
           )
 
-          assert turkishevalkit.__version__ == version("turkishevalkit")
-          assert INTERCHANGE_SCHEMA == "turkishevalkit.evaluation-dataset"
+          assert turkishqualitykit.__version__ == version("turkishqualitykit")
+          assert INTERCHANGE_SCHEMA == "turkishqualitykit.evaluation-dataset"
           assert INTERCHANGE_SCHEMA_VERSION == "1.0"
           assert callable(import_workspace_file)
           assert callable(load_interchange_records)
@@ -79,25 +79,25 @@ jobs:
 
       - name: CLI surface
         run: |
-          turkisheval convert --help
-          turkisheval export --help
-          turkisheval import --help
+          turkishquality convert --help
+          turkishquality export --help
+          turkishquality import --help
 
       - name: Wheel interchange module
         run: |
-          rm -rf /tmp/turkishevalkit-interchange-wheel
-          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-interchange-wheel
+          rm -rf /tmp/turkishqualitykit-interchange-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishqualitykit-interchange-wheel
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
           wheel = next(
-              Path("/tmp/turkishevalkit-interchange-wheel").glob("turkishevalkit-*.whl")
+              Path("/tmp/turkishqualitykit-interchange-wheel").glob("turkishqualitykit-*.whl")
           )
           required = {
-              "turkishevalkit/interchange.py",
-              "turkishevalkit/cli.py",
-              "turkishevalkit/serialization.py",
+              "turkishqualitykit/interchange.py",
+              "turkishqualitykit/cli.py",
+              "turkishqualitykit/serialization.py",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
