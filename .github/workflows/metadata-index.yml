@@ -6,11 +6,11 @@ on:
     paths:
       - ".github/workflows/metadata-index.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/__init__.py"
-      - "src/turkishevalkit/cli.py"
-      - "src/turkishevalkit/metadata_index.py"
-      - "src/turkishevalkit/workbench.py"
-      - "src/turkishevalkit/review_queue.py"
+      - "src/turkishqualitykit/__init__.py"
+      - "src/turkishqualitykit/cli.py"
+      - "src/turkishqualitykit/metadata_index.py"
+      - "src/turkishqualitykit/workbench.py"
+      - "src/turkishqualitykit/review_queue.py"
       - "docs/METADATA_INDEX.md"
       - "tests/test_metadata_index.py"
       - "tests/test_cli_metadata_index.py"
@@ -18,11 +18,11 @@ on:
     paths:
       - ".github/workflows/metadata-index.yml"
       - "pyproject.toml"
-      - "src/turkishevalkit/__init__.py"
-      - "src/turkishevalkit/cli.py"
-      - "src/turkishevalkit/metadata_index.py"
-      - "src/turkishevalkit/workbench.py"
-      - "src/turkishevalkit/review_queue.py"
+      - "src/turkishqualitykit/__init__.py"
+      - "src/turkishqualitykit/cli.py"
+      - "src/turkishqualitykit/metadata_index.py"
+      - "src/turkishqualitykit/workbench.py"
+      - "src/turkishqualitykit/review_queue.py"
       - "docs/METADATA_INDEX.md"
       - "tests/test_metadata_index.py"
       - "tests/test_cli_metadata_index.py"
@@ -58,8 +58,8 @@ jobs:
           python - <<'PY'
           from importlib.metadata import version
 
-          import turkishevalkit
-          from turkishevalkit import (
+          import turkishqualitykit
+          from turkishqualitykit import (
               METADATA_INDEX_SCHEMA_VERSION,
               MetadataIndexState,
               clear_metadata_index,
@@ -67,7 +67,7 @@ jobs:
               rebuild_metadata_index,
           )
 
-          assert turkishevalkit.__version__ == version("turkishevalkit")
+          assert turkishqualitykit.__version__ == version("turkishqualitykit")
           assert METADATA_INDEX_SCHEMA_VERSION == 1
           assert MetadataIndexState.FRESH.value == "fresh"
           assert callable(clear_metadata_index)
@@ -77,26 +77,26 @@ jobs:
 
       - name: CLI surface
         run: |
-          turkisheval index --help
-          turkisheval index status --help
-          turkisheval index rebuild --help
-          turkisheval index clear --help
+          turkishquality index --help
+          turkishquality index status --help
+          turkishquality index rebuild --help
+          turkishquality index clear --help
 
       - name: Wheel metadata index module
         run: |
-          rm -rf /tmp/turkishevalkit-index-wheel
-          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishevalkit-index-wheel
+          rm -rf /tmp/turkishqualitykit-index-wheel
+          python -m pip wheel . --no-deps --wheel-dir /tmp/turkishqualitykit-index-wheel
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
 
           wheel = next(
-              Path("/tmp/turkishevalkit-index-wheel").glob("turkishevalkit-*.whl")
+              Path("/tmp/turkishqualitykit-index-wheel").glob("turkishqualitykit-*.whl")
           )
           required = {
-              "turkishevalkit/metadata_index.py",
-              "turkishevalkit/workbench.py",
-              "turkishevalkit/review_queue.py",
+              "turkishqualitykit/metadata_index.py",
+              "turkishqualitykit/workbench.py",
+              "turkishqualitykit/review_queue.py",
           }
           with ZipFile(wheel) as archive:
               names = set(archive.namelist())
