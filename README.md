@@ -8,7 +8,7 @@
 
 TurkishEvalKit records native-language human judgments against explicit, versioned rubrics and turns them into inspectable local artifacts. It is designed for evaluator workflows, QA, research prototypes, and teams that need structured evidence without pretending an automated heuristic can replace the evaluator.
 
-> **Status:** alpha (`0.13.x`). The project includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, a localhost reliability workspace, versioned evaluation-dataset interchange, optional rebuildable metadata indexing, JSON/JSONL/CLI interfaces, and localhost-only browser tools.
+> **Status:** stable v1 (`1.0.x`). The v1 contract includes deterministic text/audio/pairwise evaluation, timestamped audio evidence, review/request-changes/adjudication workflows, immutable revision lineage, action-oriented review queues, multi-evaluator calibration, disagreement drill-down, repeated-task reliability statistics, a localhost reliability workspace, versioned evaluation-dataset interchange, optional rebuildable metadata indexing, JSON/JSONL/CLI interfaces, and localhost-only browser tools. See [`CHANGELOG.md`](CHANGELOG.md) for release history.
 
 ## Why this exists
 
@@ -142,9 +142,9 @@ A reliability specification must declare `minimum_task_count` and the value must
 
 Reliability coefficients are not evaluator correctness scores and are never converted automatically into pass/fail thresholds or rankings.
 
-#### Reliability Workspace (`0.13.x`)
+#### Reliability Workspace (`1.0.x`)
 
-The localhost workbench now exposes `/reliability`.
+The localhost workbench exposes `/reliability`.
 
 - Candidate task units are derived from saved evaluation JSON plus trusted workflow-sidecar attribution.
 - Same-stimulus grouping uses task ID, evaluation type, rubric ID/version, and exact source stimulus.
@@ -440,7 +440,7 @@ Population reliability consumes evaluation submissions but does not rewrite eval
 
 ## Non-goals
 
-TurkishEvalKit does **not** currently:
+TurkishEvalKit does **not**:
 
 - automatically decide whether an answer or voice sample is good;
 - send evaluation content to an external AI service;
@@ -515,6 +515,7 @@ src/turkishevalkit/
 
 ## Documentation
 
+- [`CHANGELOG.md`](CHANGELOG.md)
 - [`docs/RUBRICS.md`](docs/RUBRICS.md)
 - [`docs/AUDIO_ANNOTATIONS.md`](docs/AUDIO_ANNOTATIONS.md)
 - [`docs/REVIEW_WORKFLOW.md`](docs/REVIEW_WORKFLOW.md)
@@ -529,9 +530,9 @@ src/turkishevalkit/
 - [`docs/WORKBENCH.md`](docs/WORKBENCH.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
-## Roadmap
+## Post-v1 roadmap
 
-Near-term work remains ordered around evaluator correctness rather than surface area:
+Further work remains ordered around evaluator correctness rather than surface area:
 
 1. explicit branching semantics only if real collaborative revision use cases justify the complexity;
 2. shared audio-alignment primitives if additional evidence consumers need timestamp matching beyond calibration/explorer paths.

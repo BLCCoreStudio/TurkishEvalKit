@@ -169,7 +169,7 @@ jobs:
           import turkishevalkit
 
           assert turkishevalkit.__version__ == version("turkishevalkit")
-          assert turkishevalkit.__version__ == "0.13.0"
+          assert turkishevalkit.__version__ == "1.0.0"
           PY
 
   reliability-browser-e2e:
