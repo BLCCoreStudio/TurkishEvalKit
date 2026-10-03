@@ -12,7 +12,10 @@ def test_project_version_has_matching_changelog_release_heading() -> None:
     version = project["project"]["version"]
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
-    release_heading = re.compile(rf"^##\s+{re.escape(version)}(?:\s+—\s+\d{{4}}-\d{{2}}-\d{{2}})?\s*$", re.MULTILINE)
+    release_heading = re.compile(
+        rf"^##\s+{re.escape(version)}(?:\s+—\s+\d{{4}}-\d{{2}}-\d{{2}})?\s*$",
+        re.MULTILINE,
+    )
     assert release_heading.search(changelog), (
         f"pyproject.toml declares {version}, but CHANGELOG.md has no matching release heading"
     )
